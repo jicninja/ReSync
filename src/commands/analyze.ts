@@ -10,6 +10,7 @@ import { rawDir, analyzedDir, writeMarkdown } from '../utils/fs.js';
 import type { AnalyzerReport } from '../analyzers/types.js';
 import type { SubagentTask } from '../ai/types.js';
 import { PHASE_INGESTED } from '../constants.js';
+import { parseConfidence, confidenceToFloat } from '../analyzers/confidence-parser.js';
 import { createTUI } from '../tui/factory.js';
 
 export async function runAnalyze(
@@ -241,13 +242,15 @@ export async function runAnalyze(
 
       analyzersRun.push(result.id);
 
+      const parsed = result.output ? parseConfidence(result.output) : undefined;
+
       const report: AnalyzerReport = {
         id: result.id,
         status: result.status,
         durationMs: result.durationMs,
         outputFiles: analyzer.produces,
         confidence: result.status === 'success'
-          ? { overall: 'MEDIUM', items: [] }
+          ? (parsed ?? { overall: 'MEDIUM', items: [] })
           : undefined,
       };
 
@@ -258,6 +261,18 @@ export async function runAnalyze(
         const outputFile = path.join(analyzedPath, analyzer.produces[0] ?? `${analyzer.id}.md`);
         writeMarkdown(outputFile, result.output);
         tui.success(`${result.id} — done (${result.durationMs}ms)`);
+
+        if (parsed && parsed.items.some(i => i.confidence === 'LOW') && tui.getMode() === 'interactive') {
+          const lowItems = parsed.items.filter(i => i.confidence === 'LOW');
+          const itemList = lowItems.map(i => `  • "${i.name}" — ${i.reason ?? 'insufficient evidence'}`).join('\n');
+
+          await tui.ask({
+            id: `confidence-${result.id}`,
+            message: `${result.id} has LOW confidence items:\n${itemList}`,
+            choices: ['accept', 'skip', 'retry'],
+            default: 'accept',
+          });
+        }
       } else {
         tui.warn(`${result.id}: ${result.status}`, result.error ?? 'unknown error');
       }
@@ -269,13 +284,22 @@ export async function runAnalyze(
   const reportPath = path.join(analyzedPath, '_analysis-report.md');
   writeMarkdown(reportPath, reportContent);
 
-  // Compute confidence
-  const successCount = allReports.filter((r) => r.status === 'success').length;
-  const overall = allReports.length > 0 ? successCount / allReports.length : 0;
+  // Compute confidence from real parsed data
+  const confidenceScores: Record<string, number> = {};
+  for (const report of allReports) {
+    if (report.confidence) {
+      confidenceScores[report.id] = confidenceToFloat(report.confidence.overall);
+    }
+  }
+  const overallValues = Object.values(confidenceScores);
+  const overallAvg = overallValues.length > 0
+    ? overallValues.reduce((a, b) => a + b, 0) / overallValues.length
+    : 0;
+  confidenceScores.overall = Math.round(overallAvg * 100) / 100;
 
   state.completeAnalyze({
     analyzers_run: analyzersRun,
-    confidence: { overall },
+    confidence: confidenceScores,
   });
 
   tui.phaseSummary('ANALYZE COMPLETE', [
@@ -284,7 +308,7 @@ export async function runAnalyze(
       status: r.status === 'success' ? '✓' : '✗',
       detail: r.status === 'success' ? `${r.durationMs}ms` : r.status,
     })),
-    { label: 'confidence', status: '·', detail: `${(overall * 100).toFixed(0)}%` },
+    { label: 'confidence', status: '·', detail: `${(confidenceScores.overall * 100).toFixed(0)}%` },
   ]);
 
   tui.setPhase('analyze');

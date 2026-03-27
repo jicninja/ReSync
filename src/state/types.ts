@@ -1,6 +1,6 @@
 export interface IngestState {
   completed_at: string;
-  sources: { repo: boolean; jira: boolean; docs: boolean };
+  sources: { repo: boolean; jira: boolean; docs: boolean; context: boolean };
   stats: { files: number; tickets: number; pages: number };
 }
 

@@ -119,6 +119,7 @@ export async function runIngest(
       repo: repoRan,
       jira: jiraRan,
       docs: docsRan,
+      context: contextCount > 0,
     },
     stats: {
       files: repoFiles,
