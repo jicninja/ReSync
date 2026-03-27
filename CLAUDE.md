@@ -258,6 +258,26 @@ Commands validate prerequisites before running (e.g., `analyze` fails if `ingest
 - `respec init` adds `/.respec/` to `.gitignore`
 - `claude -p` inherits the user's existing Claude Code auth
 
+## Code Rules
+
+### ESM only — no require()
+This is a `"type": "module"` project. Never use `require()` or `module.exports`. Always use `import`/`export`. This includes dynamic imports inside functions — use `await import()` if needed, never `require()`.
+
+### Validate external inputs early
+Any path, URL, or resource from config or user input must be validated before use. Check `fs.existsSync()` before reading directories, verify URLs are reachable before fetching. Never silently swallow ENOENT or ECONNREFUSED — surface a clear error.
+
+### No silent catch blocks
+Never write `catch { return []; }` or `catch { /* ignore */ }`. Every catch must either:
+1. Re-throw with context: `catch (err) { throw new Error(\`Failed to X: \${err.message}\`); }`
+2. Log a warning and return a clearly-marked fallback
+3. Handle a specific, expected error (and document which one)
+
+### CLI errors go through wrapAction()
+All Commander `.action()` handlers are wrapped with `wrapAction()` in `bin/respec.ts`. This catches errors and prints `Error: <message>` without stack traces. New commands must use this wrapper. Never let unhandled rejections reach the user.
+
+### Import extensions
+All internal imports use `.js` extension (ESM requirement): `import { foo } from './bar.js'`
+
 ## Conventions
 
 - All output files are Markdown or Mermaid
