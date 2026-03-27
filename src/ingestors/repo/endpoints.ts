@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { minimatch } from 'minimatch';
 import { table } from '../../utils/markdown.js';
 
 export interface DetectEndpointsOptions {
@@ -51,7 +52,6 @@ const PATTERNS: Array<{ regex: RegExp; methodGroup: number; pathGroup: number }>
 const SUPPORTED_EXTENSIONS = new Set(['.ts', '.js', '.tsx', '.jsx', '.py']);
 
 function getAllFiles(dir: string, excludePatterns: string[]): string[] {
-  const { minimatch } = require('minimatch');
   const results: string[] = [];
 
   function walk(current: string): void {
