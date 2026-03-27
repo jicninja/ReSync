@@ -67,6 +67,21 @@ export const RAW_KEY_FILES = [
   '_manifest.md',
 ];
 
+// ── TUI ─────────────────────────────────────────────────────────────
+export const DECISIONS_FILENAME = '_decisions.md';
+export const TUI_BRAND_COLOR = '#EF9F27';
+
+// ── Confidence ──────────────────────────────────────────────────────
+export const CONFIDENCE_HIGH = 'HIGH' as const;
+export const CONFIDENCE_MEDIUM = 'MEDIUM' as const;
+export const CONFIDENCE_LOW = 'LOW' as const;
+export const CONFIDENCE_LEVELS = [CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_LOW] as const;
+export const CONFIDENCE_TO_FLOAT: Record<string, number> = {
+  HIGH: 0.9,
+  MEDIUM: 0.6,
+  LOW: 0.3,
+};
+
 export const ANALYZED_KEY_FILES = [
   'domain/entities.md',
   'domain/bounded-contexts.md',
