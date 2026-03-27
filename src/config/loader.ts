@@ -2,12 +2,13 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { configSchema, ReSpecConfig } from './schema.js';
+import { CONFIG_FILENAME } from '../constants.js';
 
 export async function loadConfig(dir: string): Promise<ReSpecConfig> {
-  const configPath = join(dir, 'respec.config.yaml');
+  const configPath = join(dir, CONFIG_FILENAME);
 
   if (!existsSync(configPath)) {
-    throw new Error(`respec.config.yaml not found in ${dir}`);
+    throw new Error(`${CONFIG_FILENAME} not found in ${dir}`);
   }
 
   const raw = readFileSync(configPath, 'utf-8');
@@ -17,7 +18,7 @@ export async function loadConfig(dir: string): Promise<ReSpecConfig> {
     parsed = parseYaml(raw);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to parse respec.config.yaml: ${message}`);
+    throw new Error(`Failed to parse ${CONFIG_FILENAME}: ${message}`);
   }
 
   const result = configSchema.safeParse(parsed);
@@ -26,7 +27,7 @@ export async function loadConfig(dir: string): Promise<ReSpecConfig> {
     const formatted = result.error.issues
       .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
       .join('\n');
-    throw new Error(`Invalid respec.config.yaml:\n${formatted}`);
+    throw new Error(`Invalid ${CONFIG_FILENAME}:\n${formatted}`);
   }
 
   return result.data;

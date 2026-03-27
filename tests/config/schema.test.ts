@@ -32,7 +32,7 @@ describe('configSchema', () => {
     expect(data.output.tasks).toBe(true);
     expect(data.ai.engine).toBe('claude');
     expect(data.ai.max_parallel).toBe(4);
-    expect(data.ai.timeout).toBe(300);
+    expect(data.ai.timeout).toBe(600);
   });
 
   it('rejects an invalid output format', () => {

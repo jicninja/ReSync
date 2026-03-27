@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { AIEngine, AIRunOptions } from '../types.js';
+import { DEFAULT_AI_TIMEOUT_SECONDS } from '../../constants.js';
 
 export class CodexAdapter implements AIEngine {
   readonly name = 'codex';
@@ -9,7 +10,7 @@ export class CodexAdapter implements AIEngine {
       const args = ['-q'];
       if (options?.model) args.push('--model', options.model);
       const child = spawn('codex', args, {
-        timeout: (options?.timeout ?? 300) * 1000,
+        timeout: (options?.timeout ?? DEFAULT_AI_TIMEOUT_SECONDS) * 1000,
       });
 
       let stdout = '';

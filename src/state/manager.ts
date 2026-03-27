@@ -7,8 +7,14 @@ import {
   AnalyzeState,
   GenerateState,
 } from './types.js';
-
-const PHASE_ORDER: PipelinePhase[] = ['empty', 'ingested', 'analyzed', 'generated'];
+import {
+  RESPEC_DIR,
+  STATE_FILENAME,
+  PHASE_INGESTED,
+  PHASE_ANALYZED,
+  PHASE_GENERATED,
+  PHASE_ORDER,
+} from '../constants.js';
 
 const EMPTY_STATE: PipelineState = {
   phase: 'empty',
@@ -22,8 +28,8 @@ export class StateManager {
   private readonly statePath: string;
 
   constructor(private readonly projectDir: string) {
-    this.stateDir = join(projectDir, '.respec');
-    this.statePath = join(this.stateDir, 'state.json');
+    this.stateDir = join(projectDir, RESPEC_DIR);
+    this.statePath = join(this.stateDir, STATE_FILENAME);
   }
 
   load(): PipelineState {
@@ -46,7 +52,7 @@ export class StateManager {
     const state = this.load();
     const updated: PipelineState = {
       ...state,
-      phase: 'ingested',
+      phase: PHASE_INGESTED,
       ingest: {
         ...data,
         completed_at: new Date().toISOString(),
@@ -60,7 +66,7 @@ export class StateManager {
     const state = this.load();
     const updated: PipelineState = {
       ...state,
-      phase: 'analyzed',
+      phase: PHASE_ANALYZED,
       analyze: {
         ...data,
         completed_at: new Date().toISOString(),
@@ -74,7 +80,7 @@ export class StateManager {
     const state = this.load();
     const updated: PipelineState = {
       ...state,
-      phase: 'generated',
+      phase: PHASE_GENERATED,
       generate: {
         ...data,
         completed_at: new Date().toISOString(),

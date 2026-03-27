@@ -1,4 +1,15 @@
 import { z } from 'zod';
+import {
+  DEFAULT_AI_ENGINE,
+  DEFAULT_AI_TIMEOUT_SECONDS,
+  DEFAULT_MAX_PARALLEL,
+  DEFAULT_OUTPUT_DIR,
+  DEFAULT_OUTPUT_FORMAT,
+  DEFAULT_DIAGRAM_TYPE,
+  DEFAULT_REPO_BRANCH,
+  OUTPUT_FORMATS,
+  AI_ENGINES,
+} from '../constants.js';
 
 const projectSchema = z.object({
   name: z.string(),
@@ -8,7 +19,7 @@ const projectSchema = z.object({
 
 const repoSourceSchema = z.object({
   path: z.string(),
-  branch: z.string().default('main'),
+  branch: z.string().default(DEFAULT_REPO_BRANCH),
   role: z.literal('primary').optional(),
   include: z.array(z.string()).optional(),
   exclude: z.array(z.string()).optional(),
@@ -55,26 +66,26 @@ const sourcesSchema = z.object({
   docs: docsSourceSchema,
 });
 
-export const aiEngineEnum = z.enum(['claude', 'codex', 'gemini', 'custom']);
+export const aiEngineEnum = z.enum(AI_ENGINES);
 export type AIEngine = z.infer<typeof aiEngineEnum>;
 
 const aiObjectSchema = z.object({
-  engine: aiEngineEnum.default('claude'),
+  engine: aiEngineEnum.default(DEFAULT_AI_ENGINE),
   command: z.string().optional(),
-  max_parallel: z.number().int().min(1).max(16).default(4),
-  timeout: z.number().int().min(30).default(300),
+  max_parallel: z.number().int().min(1).max(16).default(DEFAULT_MAX_PARALLEL),
+  timeout: z.number().int().min(30).default(DEFAULT_AI_TIMEOUT_SECONDS),
   model: z.string().optional(),
 });
 
 const aiSchema = z.preprocess((val) => val ?? {}, aiObjectSchema);
 
-export const outputFormatEnum = z.enum(['kiro', 'openspec', 'antigravity', 'superpowers']);
+export const outputFormatEnum = z.enum(OUTPUT_FORMATS);
 export type OutputFormat = z.infer<typeof outputFormatEnum>;
 
 const outputSchema = z.object({
-  dir: z.string().default('./specs'),
-  format: outputFormatEnum.default('openspec'),
-  diagrams: z.enum(['mermaid', 'none']).default('mermaid'),
+  dir: z.string().default(DEFAULT_OUTPUT_DIR),
+  format: outputFormatEnum.default(DEFAULT_OUTPUT_FORMAT),
+  diagrams: z.enum(['mermaid', 'none']).default(DEFAULT_DIAGRAM_TYPE),
   tasks: z.boolean().default(true),
 });
 

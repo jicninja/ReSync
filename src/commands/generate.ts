@@ -4,6 +4,7 @@ import { loadConfig } from '../config/loader.js';
 import { StateManager } from '../state/manager.js';
 import { createFormatAdapter } from '../formats/factory.js';
 import { analyzedDir, specsDir } from '../utils/fs.js';
+import { PHASE_ANALYZED } from '../constants.js';
 
 export async function runGenerate(
   dir: string,
@@ -13,7 +14,7 @@ export async function runGenerate(
   const state = new StateManager(dir);
 
   if (!options.force) {
-    state.requirePhase('analyzed');
+    state.requirePhase(PHASE_ANALYZED);
   }
 
   const format = config.output.format;

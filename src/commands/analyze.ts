@@ -9,6 +9,7 @@ import { buildAnalysisReport } from '../analyzers/report.js';
 import { rawDir, analyzedDir, writeMarkdown } from '../utils/fs.js';
 import type { AnalyzerReport } from '../analyzers/types.js';
 import type { SubagentTask } from '../ai/types.js';
+import { PHASE_INGESTED } from '../constants.js';
 
 export async function runAnalyze(
   dir: string,
@@ -18,7 +19,7 @@ export async function runAnalyze(
   const state = new StateManager(dir);
 
   if (!options.force) {
-    state.requirePhase('ingested');
+    state.requirePhase(PHASE_INGESTED);
   }
 
   const engine = createAIEngine(config.ai);

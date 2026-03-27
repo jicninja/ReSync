@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { AIEngine, AIRunOptions } from '../types.js';
+import { DEFAULT_AI_TIMEOUT_SECONDS } from '../../constants.js';
 
 export class CustomAdapter implements AIEngine {
   readonly name = 'custom';
@@ -14,7 +15,7 @@ export class CustomAdapter implements AIEngine {
       const baseArgs = parts.slice(1);
 
       const child = spawn(executable, baseArgs, {
-        timeout: (options?.timeout ?? 300) * 1000,
+        timeout: (options?.timeout ?? DEFAULT_AI_TIMEOUT_SECONDS) * 1000,
         shell: false,
       });
 

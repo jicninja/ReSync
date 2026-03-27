@@ -1,22 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
-const RAW_KEY_FILES = [
-  'repo/structure.md',
-  'repo/dependencies.md',
-  'repo/endpoints.md',
-  'repo/models.md',
-  'repo/env-vars.md',
-  '_manifest.md',
-];
-
-const ANALYZED_KEY_FILES = [
-  'domain/entities.md',
-  'domain/bounded-contexts.md',
-  'flows/user-flows.md',
-  'infra/architecture.md',
-  '_analysis-report.md',
-];
+import {
+  RESPEC_DIR,
+  RAW_DIR_NAME,
+  ANALYZED_DIR_NAME,
+  RAW_KEY_FILES,
+  ANALYZED_KEY_FILES,
+} from '../constants.js';
 
 const SPECS_KEY_FILES = [
   'sdd.md',
@@ -26,9 +16,9 @@ export async function runValidate(
   dir: string,
   options: { phase?: string }
 ): Promise<void> {
-  const respecDir = path.join(dir, '.respec');
-  const rawPath = path.join(respecDir, 'raw');
-  const analyzedPath = path.join(respecDir, 'analyzed');
+  const respecDir = path.join(dir, RESPEC_DIR);
+  const rawPath = path.join(respecDir, RAW_DIR_NAME);
+  const analyzedPath = path.join(respecDir, ANALYZED_DIR_NAME);
 
   const phaseFilter = options.phase;
   let hasErrors = false;
