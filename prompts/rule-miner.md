@@ -6,6 +6,10 @@ Analyze the provided raw ingestion data and extract explicit and implicit busine
 
 ## Input: {{CONTEXT}}
 
+{{CONTEXT_SOURCES}}
+
+{{TIER1_OUTPUT}}
+
 The context above contains raw Markdown files from the ingest phase, including:
 - `raw/repo/modules/` — per-module summaries containing logic and conditions
 - `raw/jira/stories.md` — acceptance criteria and story descriptions
@@ -29,3 +33,25 @@ Rules that were not explicitly stated but are implied by the code or bug pattern
 At the end, rate your overall confidence as one of: HIGH / MEDIUM / LOW
 
 Explain briefly what drove the rating (e.g., "rich acceptance criteria in stories" → HIGH, "rules inferred from bug descriptions only" → LOW).
+
+## Example Output
+
+### Business Rules
+
+| ID | Name | Description | Source | Enforcement Point |
+|---|---|---|---|---|
+| BR-001 | Order minimum value | Orders must total at least $5.00 | stories.md: PROJ-42 | OrderService.create() |
+| BR-002 | Single active subscription | A user may only hold one active subscription at a time | modules/subscription.md | SubscriptionService |
+
+### Validation Rules
+
+| ID | Field/Entity | Constraint | Error Message | Enforced At |
+|---|---|---|---|---|
+| VR-001 | User.email | Must be valid RFC 5322 email | "Invalid email address" | API layer + DB |
+| VR-002 | Order.quantity | Must be integer >= 1 | "Quantity must be at least 1" | OrderItem model |
+
+### Derived Rules
+
+- **BR-INFERRED-001**: Orders cannot be cancelled after status=SHIPPED — inferred from bug PROJ-88 where refund logic skipped shipped orders.
+
+**Confidence: HIGH** — Acceptance criteria in stories were detailed; several rules confirmed by bug reports.

@@ -105,7 +105,124 @@ export async function runAnalyze(
         }
       }
 
-      const prompt = promptTemplate.replace('{{CONTEXT}}', context);
+      // Build context sources section
+      let contextSourcesSection = '';
+      const contextRawPath = path.join(rawPath, 'context');
+      if (fs.existsSync(contextRawPath) && fs.statSync(contextRawPath).isDirectory()) {
+        const sourceDirs = fs.readdirSync(contextRawPath).filter((entry) => {
+          const entryPath = path.join(contextRawPath, entry);
+          return fs.statSync(entryPath).isDirectory();
+        });
+
+        const sourceSections: string[] = [];
+        for (const sourceDir of sourceDirs) {
+          const sourcePath = path.join(contextRawPath, sourceDir);
+          const sectionParts: string[] = [];
+
+          // Read _context-role.md for role metadata
+          let role = 'unknown';
+          const contextRoleFile = path.join(sourcePath, '_context-role.md');
+          if (fs.existsSync(contextRoleFile)) {
+            try {
+              const roleContent = fs.readFileSync(contextRoleFile, 'utf-8');
+              sectionParts.push(roleContent);
+              const roleMatch = roleContent.match(/role:\s*(\S+)/i);
+              if (roleMatch) role = roleMatch[1];
+            } catch {
+              // skip
+            }
+          }
+
+          // Read key files: structure.md, endpoints.md, models.md
+          const keyFiles: Array<{ label: string; candidates: string[] }> = [
+            {
+              label: 'Structure',
+              candidates: [
+                path.join(sourcePath, 'repo', 'structure.md'),
+                path.join(sourcePath, 'structure.md'),
+              ],
+            },
+            {
+              label: 'Endpoints',
+              candidates: [
+                path.join(sourcePath, 'repo', 'endpoints.md'),
+                path.join(sourcePath, 'endpoints.md'),
+              ],
+            },
+            {
+              label: 'Models',
+              candidates: [
+                path.join(sourcePath, 'repo', 'models.md'),
+                path.join(sourcePath, 'models.md'),
+              ],
+            },
+          ];
+
+          for (const { label, candidates } of keyFiles) {
+            for (const candidate of candidates) {
+              if (fs.existsSync(candidate)) {
+                try {
+                  const content = fs.readFileSync(candidate, 'utf-8');
+                  sectionParts.push(`### ${label}\n\n${content}`);
+                } catch {
+                  // skip
+                }
+                break;
+              }
+            }
+          }
+
+          if (sectionParts.length > 0) {
+            sourceSections.push(
+              `## Context Source: ${sourceDir} (role: ${role})\n> This is NOT the target of the SDD. Use as reference only.\n\n${sectionParts.join('\n\n')}`
+            );
+          }
+        }
+
+        if (sourceSections.length > 0) {
+          contextSourcesSection = sourceSections.join('\n\n---\n\n');
+        }
+      }
+
+      // Build Tier 1 output section (for Tier 2 analyzers only)
+      let tier1OutputSection = '';
+      if (analyzer.tier === 2) {
+        const tier1Parts: string[] = [];
+        const tier1Files: Array<{ label: string; filePath: string }> = [
+          {
+            label: 'Bounded Contexts',
+            filePath: path.join(analyzedPath, 'domain', 'bounded-contexts.md'),
+          },
+          {
+            label: 'Architecture',
+            filePath: path.join(analyzedPath, 'infra', 'architecture.md'),
+          },
+          {
+            label: 'API Contracts',
+            filePath: path.join(analyzedPath, 'api', 'contracts.md'),
+          },
+        ];
+
+        for (const { label, filePath } of tier1Files) {
+          if (fs.existsSync(filePath)) {
+            try {
+              const content = fs.readFileSync(filePath, 'utf-8');
+              tier1Parts.push(`### ${label}\n\n${content}`);
+            } catch {
+              // skip
+            }
+          }
+        }
+
+        if (tier1Parts.length > 0) {
+          tier1OutputSection = `## Prior Analysis (from Tier 1)\n\n${tier1Parts.join('\n\n')}`;
+        }
+      }
+
+      const prompt = promptTemplate
+        .replace('{{CONTEXT}}', context)
+        .replace('{{CONTEXT_SOURCES}}', contextSourcesSection)
+        .replace('{{TIER1_OUTPUT}}', tier1OutputSection);
 
       return {
         id: analyzer.id,
