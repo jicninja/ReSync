@@ -2,14 +2,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadConfig } from '../config/loader.js';
 import { StateManager } from '../state/manager.js';
-import { createAIEngine } from '../ai/factory.js';
+import { createEngineChain } from '../ai/factory.js';
 import { Orchestrator } from '../ai/orchestrator.js';
 import { getAnalyzersByTier, getAnalyzerRegistry } from '../analyzers/registry.js';
 import { buildAnalysisReport } from '../analyzers/report.js';
 import { rawDir, analyzedDir, writeMarkdown } from '../utils/fs.js';
 import type { AnalyzerReport } from '../analyzers/types.js';
 import type { SubagentTask } from '../ai/types.js';
-import { PHASE_INGESTED } from '../constants.js';
+import { PHASE_INGESTED, PHASE_ANALYZE } from '../constants.js';
 import { parseConfidence, confidenceToFloat } from '../analyzers/confidence-parser.js';
 import { createTUI } from '../tui/factory.js';
 
@@ -25,10 +25,11 @@ export async function runAnalyze(
     state.requirePhase(PHASE_INGESTED);
   }
 
-  tui.phaseHeader('ANALYZE', `Engine: ${config.ai.engine}`);
+  const engines = createEngineChain(PHASE_ANALYZE, config.ai);
+  const engineNames = engines.map((e) => e.name).join(' → ');
+  tui.phaseHeader('ANALYZE', `Engine: ${engineNames}`);
 
-  const engine = createAIEngine(config.ai);
-  const orchestrator = new Orchestrator(engine, {
+  const orchestrator = new Orchestrator(engines, {
     max_parallel: config.ai.max_parallel,
     timeout: config.ai.timeout,
   });
