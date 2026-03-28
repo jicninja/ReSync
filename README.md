@@ -215,7 +215,9 @@ Credentials always use the `env:` prefix — never stored in the config file.
 | Command | What it does |
 |---------|-------------|
 | `respec` | Interactive wizard — guides you through the pipeline |
-| `respec init` | Creates `respec.config.yaml` with sensible defaults |
+| `respec --autopilot` | Run full pipeline non-interactively (for CI/cloud) |
+| `respec --reset --autopilot` | Wipe and re-run full pipeline |
+| `respec init` | Smart init — auto-detects project from manifests |
 | `respec ingest` | Reads repo, Jira, docs into `.respec/raw/` |
 | `respec analyze` | AI analysis of raw data into `.respec/analyzed/` |
 | `respec generate` | Produces final specs in the configured format |
@@ -223,12 +225,30 @@ Credentials always use the `env:` prefix — never stored in the config file.
 | `respec status` | Shows pipeline state and phase progress |
 | `respec validate` | Checks integrity of phase outputs |
 
-**Flags:**
+**Global flags:**
+- `--autopilot` — run full remaining pipeline without interaction
+- `--reset` — wipe `.respec/` and `specs/` before running
+- `--ci` — CI mode (no colors, no interaction)
+- `--auto` — auto-continue mode
+
+**Command flags:**
+- `--repo <path|url>` — repository path or git URL (init)
 - `--source repo|context|jira|docs` — run a single ingestor
 - `--only <analyzer|generator>` — run a single analyzer or generator
 - `--format kiro|openspec|antigravity|superpowers` — target format for export
 - `--force` — bypass prerequisite checks
 - `--verbose` — detailed output
+
+**CI/Cloud usage:**
+
+```bash
+# Full pipeline from a remote repo
+respec init --repo https://github.com/user/repo.git
+respec --autopilot --ci
+
+# Reset and re-run
+respec --reset --autopilot --ci
+```
 
 ## Primary vs. context sources
 

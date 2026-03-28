@@ -33,7 +33,8 @@ respec export   → repackages into kiro|openspec|antigravity|superpowers
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `respec` | Interactive wizard — contextual menus, autopilot, pause/inject | |
-| `respec init` | Smart init — auto-detects project from manifests | |
+| `respec --autopilot` | Run full remaining pipeline non-interactively | `--reset` `--ci` |
+| `respec init` | Smart init — auto-detects project from manifests | `--repo <path\|url>` |
 | `respec ingest` | Reads all sources to `/.respec/raw/` | `--source repo\|context\|jira\|docs` |
 | `respec analyze` | AI analysis to `/.respec/analyzed/` | `--only <analyzer>` `--force` |
 | `respec generate` | Generates specs in configured format | `--only <generator>` `--force` |
