@@ -33,7 +33,7 @@ respec export   → repackages into kiro|openspec|antigravity|superpowers
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `respec` | Interactive wizard — contextual menus, autopilot, pause/inject | |
-| `respec init` | Creates respec.config.yaml with defaults | |
+| `respec init` | Smart init — auto-detects project from manifests | |
 | `respec ingest` | Reads all sources to `/.respec/raw/` | `--source repo\|context\|jira\|docs` |
 | `respec analyze` | AI analysis to `/.respec/analyzed/` | `--only <analyzer>` `--force` |
 | `respec generate` | Generates specs in configured format | `--only <generator>` `--force` |
@@ -216,9 +216,20 @@ Running `respec` with no arguments launches the interactive wizard (`src/wizard/
 - **Prompt injection**: user-provided instructions appended to remaining AI prompts as `## Additional Instructions (user-provided)` section
 - **Orchestrator hooks**: `OrchestratorHooks` interface in `src/ai/types.ts` with `onBatchComplete` callback. Wizard registers hooks via `src/wizard/hooks.ts`. CI/auto mode has no hooks (zero overhead).
 
-Wizard code lives in `src/wizard/`: index.ts (main loop), splash.ts (ASCII art), menu.ts (contextual menus), runner.ts (spinner + autopilot), pause.ts (pause menu helpers), hooks.ts (orchestrator hook → clack UI).
+Wizard code lives in `src/wizard/`: index.ts (main loop), splash.ts (ASCII art), menu.ts (contextual menus), runner.ts (spinner + autopilot), pause.ts (pause menu helpers), hooks.ts (orchestrator hook → clack UI), init-flow.ts (interactive init).
 
 Uses `@clack/prompts` for all interactive UI (selects, spinners, text input).
+
+## Smart Init
+
+`respec init` (CLI) and the wizard's Init both auto-detect project metadata. Detection code lives in `src/init/`:
+
+- `detect.ts` — `detectProject(dir)` reads manifests (package.json, go.mod, pyproject.toml, Cargo.toml, composer.json) for name/description/version. Detects source roots (src/, lib/, app/) for includes. Reads `.gitignore` for excludes. Enriches description with detected frameworks (React, Vue, Express, etc.).
+- `siblings.ts` — `detectSiblings(dir)` scans parent directory for neighboring projects with manifests. Infers role from name patterns (backend → `api_provider`, mobile → `mobile`, shared → `shared_types`, etc.).
+
+**CLI mode** (`respec init`): generates YAML with detected values, siblings as context sources, and a Jira/docs guide as comments.
+
+**Wizard mode** (`respec` → Init): interactive step-by-step via `src/wizard/init-flow.ts`. Each field pre-filled with detected values, editable. Prompts for AI engine, Jira host/auth/filters, Confluence host/space/auth, local docs paths, and output format.
 
 ## TUI (Terminal UI)
 

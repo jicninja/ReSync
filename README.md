@@ -39,7 +39,7 @@ npm install -g respec-cli
 respec
 
 # Or run commands individually:
-respec init           # create config
+respec init           # auto-detects project from manifests
 respec ingest         # read sources
 respec analyze        # AI analysis
 respec generate       # produce specs
@@ -100,6 +100,18 @@ Run `respec` with no arguments to launch the interactive wizard:
   - Retry a task with different instructions
   - Resume or abort
 - **Start fresh** — wipes `.respec/` and `specs/`, then re-runs the full pipeline from scratch
+
+## Smart Init
+
+`respec init` auto-detects your project from manifest files — no manual editing needed:
+
+- **Manifests**: package.json, go.mod, pyproject.toml, Cargo.toml, composer.json
+- **Frameworks**: React, Vue, Angular, Next.js, Express, NestJS, Vite, TypeScript
+- **Source patterns**: detects `src/`, `lib/`, `app/` directories for includes
+- **Excludes**: reads `.gitignore` and adds common patterns
+- **Sibling repos**: scans parent directory for neighboring projects and infers roles (backend → `api_provider`, mobile → `mobile`, shared → `shared_types`)
+
+In the wizard (`respec` → Init), each detected value is pre-filled and editable, with additional prompts for Jira, Confluence, and local docs integration.
 
 ## TUI Modes
 
