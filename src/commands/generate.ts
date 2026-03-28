@@ -9,6 +9,7 @@ import { createFormatAdapter } from '../formats/factory.js';
 import { analyzedDir, specsDir, writeMarkdown } from '../utils/fs.js';
 import { PHASE_ANALYZED, PHASE_GENERATE } from '../constants.js';
 import { createTUI } from '../tui/factory.js';
+import { loadPromptTemplate } from '../prompts/loader.js';
 import { buildERDPrompt } from '../generators/erd-gen.js';
 import { buildFlowPrompt } from '../generators/flow-gen.js';
 import { buildADRPrompt } from '../generators/adr-gen.js';
@@ -92,12 +93,17 @@ export async function runGenerate(
     tui.progress(`Tier ${tier}: ${tierGenerators.map((g) => g.id).join(', ')}`);
 
     const tasks: SubagentTask[] = tierGenerators.map((generator) => {
-      const buildPrompt = PROMPT_BUILDERS[generator.id];
-      if (!buildPrompt) {
-        throw new Error(`No prompt builder for generator "${generator.id}"`);
+      const overridePath = path.join(dir, 'prompts', `${generator.id}.md`);
+      let prompt: string;
+      if (fs.existsSync(overridePath)) {
+        prompt = loadPromptTemplate(generator.id, dir);
+      } else {
+        const buildPrompt = PROMPT_BUILDERS[generator.id];
+        if (!buildPrompt) {
+          throw new Error(`No prompt builder for generator "${generator.id}"`);
+        }
+        prompt = buildPrompt(generatorCtx);
       }
-
-      const prompt = buildPrompt(generatorCtx);
 
       return {
         id: generator.id,
