@@ -93,4 +93,10 @@ program
     await runValidate(process.cwd(), options);
   }));
 
+// Default action: no subcommand → wizard
+program.action(wrapAction(async () => {
+  const { runWizard } = await import('../src/wizard/index.js');
+  await runWizard(process.cwd());
+}));
+
 program.parse();
