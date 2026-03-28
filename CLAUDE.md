@@ -83,11 +83,29 @@ sources:
     local: string[]
 
 ai:
+  # ── Legacy format (single engine) ──────────────────────────
   engine: claude | codex | gemini | custom    # default: claude
   command: string                              # custom CLI override
   max_parallel: number                         # default: 4
   timeout: number                              # default: 600 (seconds)
   model: string                                # optional model override
+
+  # ── New format (multi-engine with phase routing) ───────────
+  timeout: number                              # global default: 600
+  max_parallel: number                         # global default: 4
+  engines:
+    claude:
+      model: string                            # per-engine model
+      timeout: number                          # per-engine timeout override
+    gemini: {}
+    custom:
+      command: string                          # required for custom
+  phases:
+    analyze: string | string[]                 # engine or fallback chain
+    generate: string | string[]
+
+  # Note: Both formats are supported. Legacy format is automatically
+  # converted to the new format at runtime.
 
 output:
   dir: string                    # default: ./specs
