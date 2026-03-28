@@ -24,21 +24,32 @@ export async function runWithSpinner(
   const s = clack.spinner();
   s.start(label);
 
-  // Suppress stdout/stderr from underlying commands — wizard owns the UI
-  const origWrite = process.stdout.write.bind(process.stdout);
-  const origErr = process.stderr.write.bind(process.stderr);
-  process.stdout.write = () => true;
-  process.stderr.write = () => true;
+  // Suppress console.log/error from underlying commands — wizard owns the UI.
+  // We patch console methods instead of stdout.write so clack's spinner
+  // (which writes directly to stdout) keeps animating.
+  const origLog = console.log;
+  const origError = console.error;
+  const origWarn = console.warn;
+  const origInfo = console.info;
+  const noop = () => {};
+  console.log = noop;
+  console.error = noop;
+  console.warn = noop;
+  console.info = noop;
 
   try {
     await fn();
-    process.stdout.write = origWrite;
-    process.stderr.write = origErr;
+    console.log = origLog;
+    console.error = origError;
+    console.warn = origWarn;
+    console.info = origInfo;
     s.stop(`${label} — done`);
     return { ok: true };
   } catch (err) {
-    process.stdout.write = origWrite;
-    process.stderr.write = origErr;
+    console.log = origLog;
+    console.error = origError;
+    console.warn = origWarn;
+    console.info = origInfo;
     const message = err instanceof Error ? err.message : String(err);
     s.stop(`${label} — failed: ${message}`);
     return { ok: false, error: message };
