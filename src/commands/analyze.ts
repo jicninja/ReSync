@@ -189,28 +189,19 @@ export async function runAnalyze(
       let tier1OutputSection = '';
       if (analyzer.tier === 2) {
         const tier1Parts: string[] = [];
-        const tier1Files: Array<{ label: string; filePath: string }> = [
-          {
-            label: 'Bounded Contexts',
-            filePath: path.join(analyzedPath, 'domain', 'bounded-contexts.md'),
-          },
-          {
-            label: 'Architecture',
-            filePath: path.join(analyzedPath, 'infra', 'architecture.md'),
-          },
-          {
-            label: 'API Contracts',
-            filePath: path.join(analyzedPath, 'api', 'contracts.md'),
-          },
-        ];
+        const tier1Analyzers = getAnalyzersByTier(1);
 
-        for (const { label, filePath } of tier1Files) {
-          if (fs.existsSync(filePath)) {
-            try {
-              const content = fs.readFileSync(filePath, 'utf-8');
-              tier1Parts.push(`### ${label}\n\n${content}`);
-            } catch {
-              // skip
+        for (const t1 of tier1Analyzers) {
+          for (const producePath of t1.produces) {
+            const filePath = path.join(analyzedPath, producePath);
+            if (fs.existsSync(filePath)) {
+              try {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                const label = path.basename(producePath, '.md').replace(/-/g, ' ');
+                tier1Parts.push(`### ${label}\n\n${content}`);
+              } catch {
+                // skip
+              }
             }
           }
         }

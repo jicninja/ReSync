@@ -227,6 +227,11 @@ This is a `"type": "module"` project. Never use `require()` or `module.exports`.
 ### Validate external inputs early
 Any path, URL, or resource from config or user input must be validated before use. Check `fs.existsSync()` before reading directories, verify URLs are reachable before fetching. Never silently swallow ENOENT or ECONNREFUSED — surface a clear error.
 
+### Registry is the single source of truth for paths
+`reads` and `produces` in analyzer/generator registries are relative to their phase root (`rawDir` for reads, `analyzedDir` for produces). Two rules:
+1. **No phase prefixes in registry paths** — never include `raw/` or `analyzed/` since the consuming code already resolves against the phase root. Duplicating the prefix causes silent path misses (e.g., `.respec/raw/raw/repo/...`).
+2. **No hardcoded paths that duplicate registry data** — if code needs to reference another tier's output files, read them from the registry (`getAnalyzersByTier`, `getGeneratorsByTier`) instead of hardcoding paths. This prevents drift when registry entries change.
+
 ### No silent catch blocks
 Never write `catch { return []; }` or `catch { /* ignore */ }`. Every catch must either:
 1. Re-throw with context: `catch (err) { throw new Error(\`Failed to X: \${err.message}\`); }`
