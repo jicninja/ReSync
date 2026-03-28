@@ -6,6 +6,10 @@ Analyze the provided raw ingestion data and extract the permission model of the 
 
 ## Input: {{CONTEXT}}
 
+{{CONTEXT_SOURCES}}
+
+{{TIER1_OUTPUT}}
+
 The context above contains raw Markdown files from the ingest phase, including:
 - `raw/repo/modules/` — per-module summaries with auth middleware and guards
 - `raw/repo/endpoints.md` — HTTP routes with access control annotations
@@ -34,3 +38,42 @@ Flag operations that appear to require elevated privileges or special handling.
 At the end, rate your overall confidence as one of: HIGH / MEDIUM / LOW
 
 Explain briefly what drove the rating (e.g., "consistent RBAC decorators throughout" → HIGH, "auth logic scattered across modules" → MEDIUM).
+
+## Example Output
+
+### Roles
+
+| Role | Description | Typical Capabilities |
+|---|---|---|
+| admin | Full system access | All CRUD, user management, config |
+| customer | Authenticated end user | Own orders and profile only |
+| guest | Unauthenticated visitor | Browse products, view public content |
+
+### Permission Matrix
+
+| Resource | admin | customer | guest |
+|---|---|---|---|
+| GET /products | R | R | R |
+| POST /orders | RW | W | — |
+| GET /users | RW | — | — |
+| DELETE /orders/:id | D | — | — |
+
+### Authorization Rules
+
+| ID | Resource | Action | Required Role | Mechanism |
+|---|---|---|---|---|
+| PERM-001 | /admin/* | All | admin | @Roles('admin') guard |
+| PERM-002 | /orders/:id | DELETE | admin | middleware: requireRole |
+
+### Public Endpoints
+
+- `GET /products` — product catalogue listing
+- `GET /products/:id` — product detail
+- `POST /auth/login` — authentication
+
+### Sensitive Operations
+
+- `DELETE /users/:id` — admin-only, no soft-delete
+- `POST /admin/refunds` — elevated, requires 2FA flag
+
+**Confidence: HIGH** — Consistent use of @Roles decorators across all controllers.

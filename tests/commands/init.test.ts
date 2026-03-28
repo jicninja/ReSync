@@ -19,7 +19,8 @@ describe('init command', () => {
     const { loadConfig } = await import('../../src/config/loader.js');
     const config = await loadConfig(tmpDir);
     expect(config.output.format).toBe('openspec');
-    expect(config.ai.engine).toBe('claude');
+    expect(config.ai.engines).toBeDefined();
+    expect(config.ai.engines.claude).toBeDefined();
     expect(config.ai.max_parallel).toBe(4);
   });
 

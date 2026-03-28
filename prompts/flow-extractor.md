@@ -6,6 +6,10 @@ Analyze the provided raw ingestion data and extract user flows and data flows. M
 
 ## Input: {{CONTEXT}}
 
+{{CONTEXT_SOURCES}}
+
+{{TIER1_OUTPUT}}
+
 The context above contains raw Markdown files from the ingest phase, including:
 - `raw/repo/endpoints.md` — HTTP routes and handlers
 - `raw/repo/modules/` — per-module summaries
@@ -29,3 +33,38 @@ If the system integrates with external services, describe those flows: trigger, 
 At the end, rate your overall confidence as one of: HIGH / MEDIUM / LOW
 
 Explain briefly what drove the rating (e.g., "detailed stories aligned with endpoints" → HIGH, "only partial endpoint coverage" → MEDIUM).
+
+## Example Output
+
+### User Flows
+
+**Flow: User Checkout**
+- Actor: Authenticated Customer
+- Preconditions: Cart has at least one item
+- Steps:
+  1. Customer navigates to /checkout
+  2. System validates cart items and stock
+  3. Customer submits payment details
+  4. System charges payment and creates Order
+  5. System sends confirmation email
+- Outcome: Order created with status PENDING
+
+```mermaid
+sequenceDiagram
+  Customer->>Checkout: POST /checkout
+  Checkout->>Inventory: validateStock()
+  Checkout->>Payment: charge()
+  Payment-->>Checkout: success
+  Checkout->>OrderService: createOrder()
+  Checkout-->>Customer: 201 { orderId }
+```
+
+### Data Flows
+
+**Flow: Order to Fulfillment**
+- Entity: Order
+- Source: OrderService (on status=PAID)
+- Transformation: enrich with warehouse location
+- Destination: FulfillmentQueue (SQS)
+
+**Confidence: MEDIUM** — Stories provided clear user intent; some integration flows inferred from endpoint names.

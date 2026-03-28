@@ -25,7 +25,9 @@ const program = new Command();
 program
   .name('respec')
   .description('Reverse Engineering to Specification')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('--auto', 'Auto-continue mode (no interaction)')
+  .option('--ci', 'CI mode (no colors, no interaction)');
 
 program
   .command('init')
@@ -39,8 +41,9 @@ program
   .description('Read all sources and write raw data to .respec/raw/')
   .option('--source <source>', 'Only run a specific ingestor (repo, jira, docs)')
   .option('--force', 'Bypass phase prerequisite checks')
-  .action(wrapAction(async (options: { source?: string; force?: boolean }) => {
-    await runIngest(process.cwd(), options);
+  .action(wrapAction(async (cmdOpts: { source?: string; force?: boolean }) => {
+    const globalOpts = program.opts();
+    await runIngest(process.cwd(), { ...globalOpts, ...cmdOpts });
   }));
 
 program
@@ -48,8 +51,9 @@ program
   .description('AI analysis of raw data, writes to .respec/analyzed/')
   .option('--only <analyzer>', 'Only run a specific analyzer by id')
   .option('--force', 'Bypass phase prerequisite checks')
-  .action(wrapAction(async (options: { only?: string; force?: boolean }) => {
-    await runAnalyze(process.cwd(), options);
+  .action(wrapAction(async (cmdOpts: { only?: string; force?: boolean }) => {
+    const globalOpts = program.opts();
+    await runAnalyze(process.cwd(), { ...globalOpts, ...cmdOpts });
   }));
 
 program
@@ -57,8 +61,9 @@ program
   .description('Generate final specs from analyzed data into /specs/')
   .option('--only <generator>', 'Only run a specific generator by id')
   .option('--force', 'Bypass phase prerequisite checks')
-  .action(wrapAction(async (options: { only?: string; force?: boolean }) => {
-    await runGenerate(process.cwd(), options);
+  .action(wrapAction(async (cmdOpts: { only?: string; force?: boolean }) => {
+    const globalOpts = program.opts();
+    await runGenerate(process.cwd(), { ...globalOpts, ...cmdOpts });
   }));
 
 program
@@ -66,16 +71,18 @@ program
   .description('Package /specs/ into a Claude Code skill set or other format')
   .option('--format <format>', 'Output format (kiro, openspec, antigravity, superpowers)')
   .option('--output <dir>', 'Output directory (defaults to specs dir from config)')
-  .action(wrapAction(async (options: { format?: string; output?: string }) => {
-    await runExport(process.cwd(), options);
+  .action(wrapAction(async (cmdOpts: { format?: string; output?: string }) => {
+    const globalOpts = program.opts();
+    await runExport(process.cwd(), { ...globalOpts, ...cmdOpts });
   }));
 
 program
   .command('status')
   .description('Show current pipeline state and phase coverage')
   .option('--verbose', 'Show detailed stats for each phase')
-  .action(wrapAction(async (options: { verbose?: boolean }) => {
-    await runStatus(process.cwd(), options);
+  .action(wrapAction(async (cmdOpts: { verbose?: boolean }) => {
+    const globalOpts = program.opts();
+    await runStatus(process.cwd(), { ...globalOpts, ...cmdOpts });
   }));
 
 program

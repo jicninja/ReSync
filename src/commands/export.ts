@@ -3,11 +3,13 @@ import * as fs from 'node:fs';
 import { loadConfig } from '../config/loader.js';
 import { createFormatAdapter } from '../formats/factory.js';
 import { analyzedDir, specsDir } from '../utils/fs.js';
+import { createTUI } from '../tui/factory.js';
 
 export async function runExport(
   dir: string,
-  options: { format?: string; output?: string }
+  options: { format?: string; output?: string; auto?: boolean; ci?: boolean }
 ): Promise<void> {
+  const tui = createTUI(options);
   const config = await loadConfig(dir);
 
   const format = options.format ?? config.output.format;
@@ -32,8 +34,16 @@ export async function runExport(
     analyzedDir: analyzedPath,
   };
 
-  console.log(`Exporting specs with format: ${format} to ${outputDir}`);
+  tui.phaseHeader('EXPORT', `Format: ${format}`);
+  tui.progress(`Exporting specs with format: ${format}...`);
   await adapter.package(inputDir, outputDir, context);
+  tui.success(`Output: ${outputDir}`);
 
-  console.log(`Export complete. Output: ${outputDir}`);
+  tui.phaseSummary('EXPORT COMPLETE', [
+    { label: format, status: '✓', detail: outputDir },
+  ]);
+
+  tui.setPhase('export');
+  tui.writeDecisionLog(path.join(dir, '.respec'));
+  tui.destroy();
 }

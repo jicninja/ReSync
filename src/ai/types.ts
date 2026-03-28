@@ -27,5 +27,24 @@ export interface SubagentResult {
   status: 'success' | 'failure' | 'timeout';
   output?: string;
   error?: string;
+  engine?: string;
   durationMs: number;
+}
+
+export interface EngineConfig {
+  command?: string;
+  model?: string;
+  timeout?: number;
+}
+
+export interface PhaseRouting {
+  analyze?: string[];
+  generate?: string[];
+}
+
+export interface ResolvedAIConfig {
+  timeout: number;
+  max_parallel: number;
+  engines: Record<string, EngineConfig>;
+  phases: PhaseRouting;
 }

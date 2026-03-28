@@ -14,6 +14,8 @@ export function buildERDPrompt(ctx: GeneratorContext): string {
 
   return `You are a senior software architect generating entity-relationship and context map diagrams for the project "${ctx.projectName}".
 
+IMPORTANT: You are running as a text-generation subprocess. Do NOT attempt to create files, use tools, or interact with any system. Your ONLY output is the raw Markdown text written to stdout. Everything you write goes directly into a single output file.
+
 Using the analyzed domain artifacts below, produce two Mermaid diagrams:
 
 1. An ERD (Entity Relationship Diagram) showing all entities and their relationships.
@@ -37,11 +39,11 @@ ${aggregatesContent || '(No aggregates file found.)'}
 
 Produce two outputs:
 
-### 1. ERD (save as \`domain/erd.mermaid\`)
+### 1. ERD (label: \`domain/erd.mermaid\`)
 
 Use Mermaid \`erDiagram\` syntax. Include all entities, their attributes, and relationships (one-to-one, one-to-many, many-to-many).
 
-### 2. Context Map (save as \`domain/context-map.mermaid\`)
+### 2. Context Map (label: \`domain/context-map.mermaid\`)
 
 Use Mermaid \`graph LR\` syntax. Show each bounded context as a node and draw edges labeled with the integration pattern (e.g., Shared Kernel, Customer/Supplier, Conformist, Anti-Corruption Layer).
 

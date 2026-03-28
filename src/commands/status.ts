@@ -1,59 +1,54 @@
 import { StateManager } from '../state/manager.js';
+import { createTUI } from '../tui/factory.js';
 
 export async function runStatus(
   dir: string,
-  options: { verbose?: boolean }
+  options: { verbose?: boolean; auto?: boolean; ci?: boolean }
 ): Promise<void> {
+  const tui = createTUI(options);
   const state = new StateManager(dir);
   const pipeline = state.load();
 
-  console.log(`\nReSpec Pipeline Status`);
-  console.log(`======================`);
-  console.log(`Current phase: ${pipeline.phase}`);
-  console.log('');
+  tui.phaseHeader('STATUS', `Current phase: ${pipeline.phase}`);
 
   if (pipeline.ingest) {
-    console.log(`[ingested] Ingest completed at: ${pipeline.ingest.completed_at}`);
+    tui.info(`[ingested] Ingest completed at: ${pipeline.ingest.completed_at}`);
     if (options.verbose) {
-      console.log(`  Sources:`);
-      console.log(`    repo: ${pipeline.ingest.sources.repo ? 'yes' : 'no'}`);
-      console.log(`    jira: ${pipeline.ingest.sources.jira ? 'yes' : 'no'}`);
-      console.log(`    docs: ${pipeline.ingest.sources.docs ? 'yes' : 'no'}`);
-      console.log(`  Stats:`);
-      console.log(`    files:   ${pipeline.ingest.stats.files}`);
-      console.log(`    tickets: ${pipeline.ingest.stats.tickets}`);
-      console.log(`    pages:   ${pipeline.ingest.stats.pages}`);
+      tui.info(`  Sources:`);
+      tui.info(`    repo: ${pipeline.ingest.sources.repo ? 'yes' : 'no'}`);
+      tui.info(`    jira: ${pipeline.ingest.sources.jira ? 'yes' : 'no'}`);
+      tui.info(`    docs: ${pipeline.ingest.sources.docs ? 'yes' : 'no'}`);
+      tui.info(`  Stats:`);
+      tui.info(`    files:   ${pipeline.ingest.stats.files}`);
+      tui.info(`    tickets: ${pipeline.ingest.stats.tickets}`);
+      tui.info(`    pages:   ${pipeline.ingest.stats.pages}`);
     }
   } else {
-    console.log(`[ingested] Not yet run. Use: respec ingest`);
+    tui.info(`[ingested] Not yet run. Use: respec ingest`);
   }
 
-  console.log('');
-
   if (pipeline.analyze) {
-    console.log(`[analyzed] Analyze completed at: ${pipeline.analyze.completed_at}`);
+    tui.info(`[analyzed] Analyze completed at: ${pipeline.analyze.completed_at}`);
     if (options.verbose) {
-      console.log(`  Analyzers run: ${pipeline.analyze.analyzers_run.join(', ')}`);
-      console.log(`  Confidence:`);
+      tui.info(`  Analyzers run: ${pipeline.analyze.analyzers_run.join(', ')}`);
+      tui.info(`  Confidence:`);
       for (const [key, value] of Object.entries(pipeline.analyze.confidence)) {
-        console.log(`    ${key}: ${(value * 100).toFixed(0)}%`);
+        tui.info(`    ${key}: ${(value * 100).toFixed(0)}%`);
       }
     }
   } else {
-    console.log(`[analyzed] Not yet run. Use: respec analyze`);
+    tui.info(`[analyzed] Not yet run. Use: respec analyze`);
   }
-
-  console.log('');
 
   if (pipeline.generate) {
-    console.log(`[generated] Generate completed at: ${pipeline.generate.completed_at}`);
+    tui.info(`[generated] Generate completed at: ${pipeline.generate.completed_at}`);
     if (options.verbose) {
-      console.log(`  Format:         ${pipeline.generate.format}`);
-      console.log(`  Generators run: ${pipeline.generate.generators_run.join(', ')}`);
+      tui.info(`  Format:         ${pipeline.generate.format}`);
+      tui.info(`  Generators run: ${pipeline.generate.generators_run.join(', ')}`);
     }
   } else {
-    console.log(`[generated] Not yet run. Use: respec generate`);
+    tui.info(`[generated] Not yet run. Use: respec generate`);
   }
 
-  console.log('');
+  tui.destroy();
 }

@@ -63,7 +63,8 @@ output: {}
     expect(config.sources.repo.branch).toBe('main');
     expect(config.output.format).toBe('openspec');
     expect(config.output.diagrams).toBe('mermaid');
-    expect(config.ai.engine).toBe('claude');
+    expect(config.ai.engines).toBeDefined();
+    expect(config.ai.engines.claude).toBeDefined();
     expect(config.ai.max_parallel).toBe(4);
   });
 

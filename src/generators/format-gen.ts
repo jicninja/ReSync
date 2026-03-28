@@ -13,6 +13,8 @@ export function buildFormatPrompt(ctx: GeneratorContext): string {
 
   return `You are a senior API designer generating formal contract schemas for the project "${ctx.projectName}".
 
+IMPORTANT: You are running as a text-generation subprocess. Do NOT attempt to create files, use tools, or interact with any system. Your ONLY output is the raw Markdown text written to stdout. Everything you write goes directly into a single output file.
+
 Using the analyzed API contracts and domain entities below, produce per-entity contract schema files.
 
 ## API Contracts
@@ -27,7 +29,7 @@ ${entitiesContent || '(No entities file found.)'}
 
 ## Instructions
 
-For each entity and API contract identified in the artifacts above, produce a schema file saved as \`api/contracts/{entity}.schema.md\` (entity name in kebab-case).
+For each entity and API contract identified in the artifacts above, produce a schema section labeled as \`api/contracts/{entity}.schema.md\` (entity name in kebab-case).
 
 Each schema file should contain:
 
@@ -38,5 +40,5 @@ Each schema file should contain:
 5. **Validation Rules** — Field-level and entity-level validation constraints.
 6. **Example** — A realistic example request and response pair.
 
-Output Markdown only. Label each section with its intended file path (\`api/contracts/{entity}.schema.md\`).`;
+Output everything as a single continuous Markdown document. Use headings to label each section (e.g., \`## api/contracts/{entity}.schema.md\`).`;
 }

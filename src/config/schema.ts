@@ -11,6 +11,7 @@ import {
   AI_ENGINES,
   CONTEXT_ROLES,
 } from '../constants.js';
+import { normalizeAiConfig } from './normalizer.js';
 
 const projectSchema = z.object({
   name: z.string(),
@@ -70,17 +71,73 @@ const sourcesSchema = z.object({
 });
 
 export const aiEngineEnum = z.enum(AI_ENGINES);
-export type AIEngine = z.infer<typeof aiEngineEnum>;
+export type AIEngineType = z.infer<typeof aiEngineEnum>;
+// Backwards-compat alias (non-conflicting with AIEngine interface in src/ai/types.ts)
+export type AIEngine = AIEngineType;
 
-const aiObjectSchema = z.object({
-  engine: aiEngineEnum.default(DEFAULT_AI_ENGINE),
+const engineConfigSchema = z.object({
   command: z.string().optional(),
-  max_parallel: z.number().int().min(1).max(16).default(DEFAULT_MAX_PARALLEL),
-  timeout: z.number().int().min(30).default(DEFAULT_AI_TIMEOUT_SECONDS),
   model: z.string().optional(),
+  timeout: z.number().int().min(30).optional(),
+}).passthrough();
+
+const phaseValueSchema = z.union([z.string(), z.array(z.string())]);
+
+const phasesSchema = z.object({
+  analyze: phaseValueSchema.optional(),
+  generate: phaseValueSchema.optional(),
+}).optional();
+
+const aiRawSchema = z.object({
+  engine: aiEngineEnum.optional(),
+  engines: z.record(z.string(), engineConfigSchema).optional(),
+  command: z.string().optional(),
+  model: z.string().optional(),
+  max_parallel: z.number().int().min(1).max(16).optional(),
+  timeout: z.number().int().min(30).optional(),
+  phases: phasesSchema,
+}).superRefine((data, ctx) => {
+  if (data.engine !== undefined && data.engines !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Cannot specify both "ai.engine" and "ai.engines". Use one format or the other.',
+    });
+    return;
+  }
+
+  if (data.engines && data.phases) {
+    const engineNames = new Set(Object.keys(data.engines));
+    for (const [phase, value] of Object.entries(data.phases)) {
+      if (value === undefined) continue;
+      const names = Array.isArray(value) ? value : [value];
+      for (const name of names) {
+        if (!engineNames.has(name)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Phase "${phase}" references undefined engine "${name}"`,
+            path: ['phases', phase],
+          });
+        }
+      }
+    }
+  }
 });
 
-const aiSchema = z.preprocess((val) => val ?? {}, aiObjectSchema);
+const aiSchema = z.preprocess(
+  (val) => val ?? {},
+  aiRawSchema.transform((raw) => {
+    // Apply defaults before normalizing: if neither engine nor engines specified, use default engine
+    const withDefaults = {
+      max_parallel: DEFAULT_MAX_PARALLEL,
+      timeout: DEFAULT_AI_TIMEOUT_SECONDS,
+      ...raw,
+      ...(raw.engine === undefined && raw.engines === undefined
+        ? { engine: DEFAULT_AI_ENGINE }
+        : {}),
+    };
+    return normalizeAiConfig(withDefaults);
+  }),
+);
 
 export const outputFormatEnum = z.enum(OUTPUT_FORMATS);
 export type OutputFormat = z.infer<typeof outputFormatEnum>;

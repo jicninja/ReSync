@@ -1,3 +1,5 @@
+import type { ConfidenceResult } from './confidence-parser.js';
+
 export interface AnalyzerDef {
   id: string;
   reads: string[];
@@ -11,5 +13,5 @@ export interface AnalyzerReport {
   status: 'success' | 'failure' | 'timeout';
   durationMs: number;
   outputFiles: string[];
-  confidence?: string;
+  confidence?: ConfidenceResult;
 }

@@ -30,7 +30,8 @@ describe('configSchema', () => {
     expect(data.output.format).toBe('openspec');
     expect(data.output.diagrams).toBe('mermaid');
     expect(data.output.tasks).toBe(true);
-    expect(data.ai.engine).toBe('claude');
+    expect(data.ai.engines).toBeDefined();
+    expect(data.ai.engines.claude).toBeDefined();
     expect(data.ai.max_parallel).toBe(4);
     expect(data.ai.timeout).toBe(600);
   });
@@ -101,10 +102,10 @@ describe('configSchema', () => {
     const result = configSchema.safeParse(withCustomAi);
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data.ai.engine).toBe('custom');
-    expect(result.data.ai.command).toBe('/usr/local/bin/my-ai');
+    expect(result.data.ai.engines.custom).toBeDefined();
+    expect(result.data.ai.engines.custom.command).toBe('/usr/local/bin/my-ai');
     expect(result.data.ai.max_parallel).toBe(8);
-    expect(result.data.ai.model).toBe('my-model-v2');
+    expect(result.data.ai.engines.custom.model).toBe('my-model-v2');
   });
 
   it('rejects ai.max_parallel outside 1-16 range', () => {
@@ -169,5 +170,57 @@ describe('configSchema', () => {
     };
     const result = configSchema.safeParse(withDocs);
     expect(result.success).toBe(true);
+  });
+
+  it('validates new multi-engine config format', () => {
+    const withMultiEngine = {
+      ...minimalConfig,
+      ai: {
+        timeout: 600,
+        max_parallel: 4,
+        engines: {
+          claude: { model: 'opus', timeout: 900 },
+          gemini: { model: 'pro' },
+        },
+        phases: {
+          analyze: ['claude', 'gemini'],
+          generate: 'gemini',
+        },
+      },
+    };
+    const result = configSchema.safeParse(withMultiEngine);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects config with both engine and engines', () => {
+    const invalid = {
+      ...minimalConfig,
+      ai: {
+        engine: 'claude',
+        engines: { claude: {} },
+      },
+    };
+    const result = configSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects phase referencing undefined engine', () => {
+    const invalid = {
+      ...minimalConfig,
+      ai: {
+        engines: { claude: {} },
+        phases: { analyze: ['openai'] },
+      },
+    };
+    const result = configSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it('preserves legacy config defaults after normalization', () => {
+    const result = configSchema.safeParse(minimalConfig);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.ai.engines).toBeDefined();
+    expect(result.data.ai.engines.claude).toBeDefined();
   });
 });

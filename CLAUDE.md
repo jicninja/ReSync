@@ -83,11 +83,29 @@ sources:
     local: string[]
 
 ai:
+  # ── Legacy format (single engine) ──────────────────────────
   engine: claude | codex | gemini | custom    # default: claude
   command: string                              # custom CLI override
   max_parallel: number                         # default: 4
   timeout: number                              # default: 600 (seconds)
   model: string                                # optional model override
+
+  # ── New format (multi-engine with phase routing) ───────────
+  timeout: number                              # global default: 600
+  max_parallel: number                         # global default: 4
+  engines:
+    claude:
+      model: string                            # per-engine model
+      timeout: number                          # per-engine timeout override
+    gemini: {}
+    custom:
+      command: string                          # required for custom
+  phases:
+    analyze: string | string[]                 # engine or fallback chain
+    generate: string | string[]
+
+  # Note: Both formats are supported. Legacy format is automatically
+  # converted to the new format at runtime.
 
 output:
   dir: string                    # default: ./specs
@@ -129,7 +147,8 @@ raw/
 │   └── bugs.md
 ├── docs/
 │   ├── readme.md
-│   └── local/{file}.md
+│   ├── local/{file}.md
+│   └── confluence/{slug}.md     # Confluence pages (if configured)
 └── _manifest.md
 ```
 
@@ -168,7 +187,7 @@ Output varies by `output.format`. See SDD section 8.3 for full directory layouts
 **Tier 1** (parallel): domain-mapper, infra-detector, api-mapper
 **Tier 2** (parallel, uses Tier 1 output): flow-extractor, rule-miner, permission-scanner
 
-Each self-reports confidence (HIGH/MEDIUM/LOW) in `_analysis-report.md`.
+Each self-reports confidence (HIGH/MEDIUM/LOW) in `_analysis-report.md`. Confidence is parsed from AI output by `src/analyzers/confidence-parser.ts` and stored as floats in `state.json` (HIGH=0.9, MEDIUM=0.6, LOW=0.3). Tier 2 analyzers receive Tier 1 output as additional context. All analyzers receive context source data when available.
 
 ## Generators
 
@@ -186,6 +205,22 @@ Each self-reports confidence (HIGH/MEDIUM/LOW) in `_analysis-report.md`.
 | `openspec` | Any agent | `openspec/specs/` + `openspec/changes/` |
 | `antigravity` | Google Antigravity | `GEMINI.md` + `.agent/rules/` |
 | `superpowers` | Claude Code | `CLAUDE.md` + `skills/` |
+
+## TUI (Terminal UI)
+
+All commands use an interactive TUI with 3 modes:
+
+| Mode | Flag | Behavior |
+|------|------|----------|
+| interactive | (default) | Styled output, pauses on breakpoints, waits for input |
+| auto | `--auto` | Styled output, auto-continues, logs decisions to `.respec/_decisions.md` |
+| ci | `--ci` | Plain text, no colors, no interaction |
+
+Hotkeys at runtime: `a` → switch to auto, `p` → pause to interactive.
+
+TUI code lives in `src/tui/`: renderer.ts (formatting), controller.ts (mode logic), keypress.ts (hotkeys), decision-log.ts (auto-decision audit trail), factory.ts (createTUI).
+
+Commands use `tui.progress()`, `tui.success()`, `tui.warn()`, `tui.ask()` — never `console.log` directly.
 
 ## Design Principles
 
@@ -209,6 +244,11 @@ This is a `"type": "module"` project. Never use `require()` or `module.exports`.
 
 ### Validate external inputs early
 Any path, URL, or resource from config or user input must be validated before use. Check `fs.existsSync()` before reading directories, verify URLs are reachable before fetching. Never silently swallow ENOENT or ECONNREFUSED — surface a clear error.
+
+### Registry is the single source of truth for paths
+`reads` and `produces` in analyzer/generator registries are relative to their phase root (`rawDir` for reads, `analyzedDir` for produces). Two rules:
+1. **No phase prefixes in registry paths** — never include `raw/` or `analyzed/` since the consuming code already resolves against the phase root. Duplicating the prefix causes silent path misses (e.g., `.respec/raw/raw/repo/...`).
+2. **No hardcoded paths that duplicate registry data** — if code needs to reference another tier's output files, read them from the registry (`getAnalyzersByTier`, `getGeneratorsByTier`) instead of hardcoding paths. This prevents drift when registry entries change.
 
 ### No silent catch blocks
 Never write `catch { return []; }` or `catch { /* ignore */ }`. Every catch must either:

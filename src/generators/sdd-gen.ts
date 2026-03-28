@@ -32,6 +32,8 @@ export function buildSDDPrompt(ctx: GeneratorContext): string {
 
   return `You are a senior software architect producing a System Design Document (SDD) for the project "${ctx.projectName}".
 
+IMPORTANT: You are running as a text-generation subprocess. Do NOT attempt to create files, use tools, or interact with any system. Your ONLY output is the raw Markdown text written to stdout. Everything you write goes directly into a single output file.
+
 Using the analyzed artifacts below, generate a complete 12-section SDD in Markdown format.
 
 ## Analyzed Artifacts

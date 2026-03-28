@@ -6,6 +6,8 @@ Analyze the provided raw ingestion data and reconstruct the infrastructure archi
 
 ## Input: {{CONTEXT}}
 
+{{CONTEXT_SOURCES}}
+
 The context above contains raw Markdown files from the ingest phase, including:
 - `raw/repo/dependencies.md` — package dependencies revealing infrastructure choices
 - `raw/repo/env-vars.md` — environment variables revealing external services and config
@@ -38,3 +40,46 @@ CI/CD hints, cloud provider clues, environment names (staging, production), and 
 At the end, rate your overall confidence as one of: HIGH / MEDIUM / LOW
 
 Explain briefly what drove the rating (e.g., "explicit Docker Compose and .env files" → HIGH, "minimal env vars, no infra config found" → LOW).
+
+## Example Output
+
+### Architecture Overview
+
+```mermaid
+graph TD
+  Client-->API[Node.js API]
+  API-->DB[(PostgreSQL)]
+  API-->Cache[(Redis)]
+  API-->Queue[SQS Queue]
+  Queue-->Worker[Background Worker]
+```
+
+### Compute
+
+- Runtime: Node.js 20, Express 4.x
+- Containerised via Dockerfile (multi-stage)
+- Worker process separate from API (same repo, different entrypoint)
+
+### Data Storage
+
+| Type | Technology | Purpose | Connection |
+|---|---|---|---|
+| Relational DB | PostgreSQL 15 | Primary data store | DATABASE_URL env var |
+| Cache | Redis 7 | Session + rate limiting | REDIS_URL env var |
+
+### Messaging and Queues
+
+- AWS SQS: `orders-fulfillment-queue` — producer: OrderService, consumer: FulfillmentWorker
+
+### External Services
+
+- Stripe (STRIPE_SECRET_KEY) — payments
+- SendGrid (SENDGRID_API_KEY) — email delivery
+
+### Deployment Signals
+
+- GitHub Actions CI (`.github/workflows/`)
+- AWS (inferred from SQS + S3 env vars)
+- Environments: `staging`, `production`
+
+**Confidence: HIGH** — Dockerfile, docker-compose.yml, and explicit env vars provided clear infrastructure picture.

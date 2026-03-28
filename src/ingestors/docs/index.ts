@@ -2,6 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ensureDir, writeMarkdown } from '../../utils/fs.js';
 import type { Ingestor, IngestorResult } from '../types.js';
+import { ConfluenceClient } from './confluence.js';
+import { convertHtmlToMarkdown } from './html-to-markdown.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.md', '.txt', '.rst']);
 
@@ -68,24 +70,50 @@ export class DocsIngestor implements Ingestor {
       }
     }
 
-    // 3. Confluence placeholder
+    // 3. Confluence ingestion
     if (this.config.confluence) {
-      const placeholderPath = path.join(docsDir, '_confluence-pending.md');
-      const content = [
-        '# Confluence Import — Pending',
+      const confluenceDir = path.join(docsDir, 'confluence');
+      ensureDir(confluenceDir);
+
+      const client = new ConfluenceClient(this.config.confluence);
+      const pages: Array<{ id: string; title: string; slug: string; ancestors: Array<{ id: string; title: string }> }> = [];
+
+      for await (const page of client.fetchPages()) {
+        const markdown = convertHtmlToMarkdown(page.body);
+        const filePath = path.join(confluenceDir, `${page.slug}.md`);
+        const header = [
+          `# ${page.title}`,
+          '',
+          ...(page.ancestors.length > 0
+            ? [`> **Path:** ${page.ancestors.map((a) => a.title).join(' > ')} > ${page.title}`, '']
+            : []),
+        ].join('\n');
+        writeMarkdown(filePath, header + markdown);
+        fileCount++;
+        artifacts.push(filePath);
+        pages.push({ id: page.id, title: page.title, slug: page.slug, ancestors: page.ancestors });
+      }
+
+      // Write manifest
+      const manifestLines = [
+        '# Confluence Pages — Manifest',
         '',
-        `> This file is a placeholder. confluence ingestion has not been implemented yet.`,
+        `**Space:** ${this.config.confluence.space}`,
+        `**Host:** ${this.config.confluence.host}`,
+        `**Pages ingested:** ${pages.length}`,
         '',
-        '## Configuration',
+        '## Pages',
         '',
-        `- **Host:** ${this.config.confluence.host}`,
-        `- **Space:** ${this.config.confluence.space}`,
-        `- **Auth:** ${this.config.confluence.auth}`,
-        '',
-        'Run `respec ingest --source docs` once confluence support is available.',
-      ].join('\n');
-      writeMarkdown(placeholderPath, content);
-      artifacts.push(placeholderPath);
+        ...pages.map((p) => {
+          const hierarchy = p.ancestors.length > 0
+            ? `${p.ancestors.map((a) => a.title).join(' > ')} > ${p.title}`
+            : p.title;
+          return `- [${p.title}](./${p.slug}.md) — ${hierarchy}`;
+        }),
+      ];
+      const manifestPath = path.join(confluenceDir, '_manifest.md');
+      writeMarkdown(manifestPath, manifestLines.join('\n'));
+      artifacts.push(manifestPath);
     }
 
     return { files: fileCount, artifacts };

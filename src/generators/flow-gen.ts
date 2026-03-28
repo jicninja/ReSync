@@ -14,6 +14,8 @@ export function buildFlowPrompt(ctx: GeneratorContext): string {
 
   return `You are a senior software architect generating flow diagrams for the project "${ctx.projectName}".
 
+IMPORTANT: You are running as a text-generation subprocess. Do NOT attempt to create files, use tools, or interact with any system. Your ONLY output is the raw Markdown text written to stdout. Everything you write goes directly into a single output file.
+
 Using the analyzed flow artifacts below, produce Mermaid diagrams for each significant user flow, data flow, and integration flow.
 
 ## User Flows
@@ -36,8 +38,8 @@ For each distinct flow identified in the artifacts above:
 
 1. Create a Mermaid \`sequenceDiagram\` or \`flowchart TD\` diagram (choose the most appropriate type).
 2. Label each diagram clearly with the flow name.
-3. Save each diagram as \`flows/{flow-name}.mermaid\` (use kebab-case for file names).
+3. Label each diagram with its intended name: \`flows/{flow-name}.mermaid\` (use kebab-case).
 
 Diagrams should show actors, system components, decision points, and data transformations.
-Output only the Mermaid diagram code blocks, clearly labeled with their intended file names.`;
+Output all diagrams as a single continuous Markdown document with labeled headings.`;
 }

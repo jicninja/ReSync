@@ -2,19 +2,22 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadConfig } from '../config/loader.js';
 import { StateManager } from '../state/manager.js';
-import { createAIEngine } from '../ai/factory.js';
+import { createEngineChain } from '../ai/factory.js';
 import { Orchestrator } from '../ai/orchestrator.js';
 import { getAnalyzersByTier, getAnalyzerRegistry } from '../analyzers/registry.js';
 import { buildAnalysisReport } from '../analyzers/report.js';
 import { rawDir, analyzedDir, writeMarkdown } from '../utils/fs.js';
 import type { AnalyzerReport } from '../analyzers/types.js';
 import type { SubagentTask } from '../ai/types.js';
-import { PHASE_INGESTED } from '../constants.js';
+import { PHASE_INGESTED, PHASE_ANALYZE } from '../constants.js';
+import { parseConfidence, confidenceToFloat } from '../analyzers/confidence-parser.js';
+import { createTUI } from '../tui/factory.js';
 
 export async function runAnalyze(
   dir: string,
-  options: { only?: string; force?: boolean }
+  options: { only?: string; force?: boolean; auto?: boolean; ci?: boolean }
 ): Promise<void> {
+  const tui = createTUI(options);
   const config = await loadConfig(dir);
   const state = new StateManager(dir);
 
@@ -22,11 +25,14 @@ export async function runAnalyze(
     state.requirePhase(PHASE_INGESTED);
   }
 
-  const engine = createAIEngine(config.ai);
-  const orchestrator = new Orchestrator(engine, {
+  const engines = createEngineChain(PHASE_ANALYZE, config.ai);
+  const engineNames = engines.map((e) => e.name).join(' → ');
+  tui.phaseHeader('ANALYZE', `Engine: ${engineNames}`);
+
+  const orchestrator = new Orchestrator(engines, {
     max_parallel: config.ai.max_parallel,
     timeout: config.ai.timeout,
-  });
+  }, config.ai.engines);
 
   const rawPath = rawDir(dir);
   const analyzedPath = analyzedDir(dir);
@@ -55,7 +61,7 @@ export async function runAnalyze(
 
     if (tierAnalyzers.length === 0) continue;
 
-    console.log(`Running tier ${tier} analyzers: ${tierAnalyzers.map((a) => a.id).join(', ')}`);
+    tui.progress(`Tier ${tier}: ${tierAnalyzers.map((a) => a.id).join(', ')}`);
 
     const tasks: SubagentTask[] = tierAnalyzers.map((analyzer) => {
       // Build context from raw MDs
@@ -101,7 +107,115 @@ export async function runAnalyze(
         }
       }
 
-      const prompt = promptTemplate.replace('{{CONTEXT}}', context);
+      // Build context sources section
+      let contextSourcesSection = '';
+      const contextRawPath = path.join(rawPath, 'context');
+      if (fs.existsSync(contextRawPath) && fs.statSync(contextRawPath).isDirectory()) {
+        const sourceDirs = fs.readdirSync(contextRawPath).filter((entry) => {
+          const entryPath = path.join(contextRawPath, entry);
+          return fs.statSync(entryPath).isDirectory();
+        });
+
+        const sourceSections: string[] = [];
+        for (const sourceDir of sourceDirs) {
+          const sourcePath = path.join(contextRawPath, sourceDir);
+          const sectionParts: string[] = [];
+
+          // Read _context-role.md for role metadata
+          let role = 'unknown';
+          const contextRoleFile = path.join(sourcePath, '_context-role.md');
+          if (fs.existsSync(contextRoleFile)) {
+            try {
+              const roleContent = fs.readFileSync(contextRoleFile, 'utf-8');
+              sectionParts.push(roleContent);
+              const roleMatch = roleContent.match(/role:\s*(\S+)/i);
+              if (roleMatch) role = roleMatch[1];
+            } catch {
+              // skip
+            }
+          }
+
+          // Read key files: structure.md, endpoints.md, models.md
+          const keyFiles: Array<{ label: string; candidates: string[] }> = [
+            {
+              label: 'Structure',
+              candidates: [
+                path.join(sourcePath, 'repo', 'structure.md'),
+                path.join(sourcePath, 'structure.md'),
+              ],
+            },
+            {
+              label: 'Endpoints',
+              candidates: [
+                path.join(sourcePath, 'repo', 'endpoints.md'),
+                path.join(sourcePath, 'endpoints.md'),
+              ],
+            },
+            {
+              label: 'Models',
+              candidates: [
+                path.join(sourcePath, 'repo', 'models.md'),
+                path.join(sourcePath, 'models.md'),
+              ],
+            },
+          ];
+
+          for (const { label, candidates } of keyFiles) {
+            for (const candidate of candidates) {
+              if (fs.existsSync(candidate)) {
+                try {
+                  const content = fs.readFileSync(candidate, 'utf-8');
+                  sectionParts.push(`### ${label}\n\n${content}`);
+                } catch {
+                  // skip
+                }
+                break;
+              }
+            }
+          }
+
+          if (sectionParts.length > 0) {
+            sourceSections.push(
+              `## Context Source: ${sourceDir} (role: ${role})\n> This is NOT the target of the SDD. Use as reference only.\n\n${sectionParts.join('\n\n')}`
+            );
+          }
+        }
+
+        if (sourceSections.length > 0) {
+          contextSourcesSection = sourceSections.join('\n\n---\n\n');
+        }
+      }
+
+      // Build Tier 1 output section (for Tier 2 analyzers only)
+      let tier1OutputSection = '';
+      if (analyzer.tier === 2) {
+        const tier1Parts: string[] = [];
+        const tier1Analyzers = getAnalyzersByTier(1);
+
+        for (const t1 of tier1Analyzers) {
+          for (const producePath of t1.produces) {
+            const filePath = path.join(analyzedPath, producePath);
+            if (fs.existsSync(filePath)) {
+              try {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                const label = path.basename(producePath, '.md').replace(/-/g, ' ');
+                tier1Parts.push(`### ${label}\n\n${content}`);
+              } catch {
+                // skip
+              }
+            }
+          }
+        }
+
+        if (tier1Parts.length > 0) {
+          tier1OutputSection = `## Prior Analysis (from Tier 1)\n\n${tier1Parts.join('\n\n')}`;
+        }
+      }
+
+      const prompt = promptTemplate
+        .replace('{{CONTEXT}}', context)
+        .replace('{{CONTEXT_SOURCES}}', contextSourcesSection)
+        .replace('{{TIER1_OUTPUT}}', tier1OutputSection);
 
       return {
         id: analyzer.id,
@@ -120,12 +234,16 @@ export async function runAnalyze(
 
       analyzersRun.push(result.id);
 
+      const parsed = result.output ? parseConfidence(result.output) : undefined;
+
       const report: AnalyzerReport = {
         id: result.id,
         status: result.status,
         durationMs: result.durationMs,
         outputFiles: analyzer.produces,
-        confidence: result.status === 'success' ? 'MEDIUM' : undefined,
+        confidence: result.status === 'success'
+          ? (parsed ?? { overall: 'MEDIUM', items: [] })
+          : undefined,
       };
 
       allReports.push(report);
@@ -134,9 +252,21 @@ export async function runAnalyze(
         // Write output to first produce file
         const outputFile = path.join(analyzedPath, analyzer.produces[0] ?? `${analyzer.id}.md`);
         writeMarkdown(outputFile, result.output);
-        console.log(`  ${result.id}: success (${result.durationMs}ms)`);
+        tui.success(`${result.id} — done (${result.durationMs}ms)`);
+
+        if (parsed && parsed.items.some(i => i.confidence === 'LOW') && tui.getMode() === 'interactive') {
+          const lowItems = parsed.items.filter(i => i.confidence === 'LOW');
+          const itemList = lowItems.map(i => `  • "${i.name}" — ${i.reason ?? 'insufficient evidence'}`).join('\n');
+
+          await tui.ask({
+            id: `confidence-${result.id}`,
+            message: `${result.id} has LOW confidence items:\n${itemList}`,
+            choices: ['accept', 'skip', 'retry'],
+            default: 'accept',
+          });
+        }
       } else {
-        console.warn(`  ${result.id}: ${result.status} — ${result.error ?? 'unknown error'}`);
+        tui.warn(`${result.id}: ${result.status}`, result.error ?? 'unknown error');
       }
     }
   }
@@ -146,14 +276,34 @@ export async function runAnalyze(
   const reportPath = path.join(analyzedPath, '_analysis-report.md');
   writeMarkdown(reportPath, reportContent);
 
-  // Compute confidence
-  const successCount = allReports.filter((r) => r.status === 'success').length;
-  const overall = allReports.length > 0 ? successCount / allReports.length : 0;
+  // Compute confidence from real parsed data
+  const confidenceScores: Record<string, number> = {};
+  for (const report of allReports) {
+    if (report.confidence) {
+      confidenceScores[report.id] = confidenceToFloat(report.confidence.overall);
+    }
+  }
+  const overallValues = Object.values(confidenceScores);
+  const overallAvg = overallValues.length > 0
+    ? overallValues.reduce((a, b) => a + b, 0) / overallValues.length
+    : 0;
+  confidenceScores.overall = Math.round(overallAvg * 100) / 100;
 
   state.completeAnalyze({
     analyzers_run: analyzersRun,
-    confidence: { overall },
+    confidence: confidenceScores,
   });
 
-  console.log(`Analyze complete. ${analyzersRun.length} analyzers run. Overall confidence: ${(overall * 100).toFixed(0)}%`);
+  tui.phaseSummary('ANALYZE COMPLETE', [
+    ...allReports.map((r) => ({
+      label: r.id,
+      status: r.status === 'success' ? '✓' : '✗',
+      detail: r.status === 'success' ? `${r.durationMs}ms` : r.status,
+    })),
+    { label: 'confidence', status: '·', detail: `${(confidenceScores.overall * 100).toFixed(0)}%` },
+  ]);
+
+  tui.setPhase('analyze');
+  tui.writeDecisionLog(path.join(dir, '.respec'));
+  tui.destroy();
 }

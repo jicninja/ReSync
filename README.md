@@ -63,6 +63,25 @@ ai:
 
 Analyzers and generators run as parallel subagents for speed. Tier 1 analyzers (domain, infra, API) run first, then Tier 2 (flows, rules, permissions) uses their output.
 
+## Interactive TUI
+
+ReSpec runs in interactive mode by default with real-time progress, styled output, and smart breakpoints that pause when something needs your attention.
+
+```
+respec ingest              # interactive (default) — pauses on questions
+respec ingest --auto       # auto-continue — runs through, logs decisions
+respec ingest --ci         # CI mode — plain text, no colors, no interaction
+```
+
+**Runtime mode switching** — press `a` anytime to switch to auto-continue, or `p` to pause back to interactive. No need to restart.
+
+When running in `--auto` mode, all decisions are logged to `.respec/_decisions.md` so you can review what was auto-decided after the run.
+
+**Smart breakpoints** pause for:
+- Internal/debug endpoints detected during ingestion
+- Hardcoded secrets found in source code
+- LOW confidence items from AI analysis
+
 ## Output formats
 
 ReSpec generates specs in four formats. Set `output.format` in your config or use `respec export --format`:
@@ -119,6 +138,10 @@ sources:
       labels: [mvp]
 
   docs:                        # optional
+    confluence:
+      host: https://company.atlassian.net/wiki
+      space: PROJ
+      auth: env:CONFLUENCE_TOKEN
     local:
       - ./docs
       - ./README.md

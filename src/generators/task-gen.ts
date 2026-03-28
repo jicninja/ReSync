@@ -15,6 +15,8 @@ export function buildTaskPrompt(ctx: GeneratorContext): string {
 
   return `You are a senior product manager and technical lead generating an implementation task breakdown for the project "${ctx.projectName}".
 
+IMPORTANT: You are running as a text-generation subprocess. Do NOT attempt to create files, use tools, or interact with any system. Your ONLY output is the raw Markdown text written to stdout. Everything you write goes directly into a single output file.
+
 Using the SDD and analyzed artifacts below, produce a structured set of epics, stories, and a migration plan.
 
 ## System Design Document
@@ -39,7 +41,7 @@ ${entitiesContent || '(No entities file found.)'}
 
 Produce the following outputs:
 
-### 1. Epics (save as \`tasks/epics.md\`)
+### 1. Epics (label: \`tasks/epics.md\`)
 
 List all epics required to implement the system from scratch. Each epic should have:
 - A unique identifier (EPIC-NNN)
@@ -48,7 +50,7 @@ List all epics required to implement the system from scratch. Each epic should h
 - Acceptance criteria
 - Estimated complexity (S/M/L/XL)
 
-### 2. Stories (save as \`tasks/stories/{epic-slug}/story-NNN.md\`, one file per story)
+### 2. Stories (label: \`tasks/stories/{epic-slug}/story-NNN.md\`, one file per story)
 
 For each epic, break it down into user stories. Each story should have:
 - Story identifier
@@ -56,7 +58,7 @@ For each epic, break it down into user stories. Each story should have:
 - Acceptance criteria (checklist)
 - Technical notes
 
-### 3. Migration Plan (save as \`tasks/migration-plan.md\`)
+### 3. Migration Plan (label: \`tasks/migration-plan.md\`)
 
 A phased migration plan covering:
 - Pre-migration steps (data preparation, infrastructure)
@@ -64,5 +66,5 @@ A phased migration plan covering:
 - Validation checkpoints
 - Post-migration cleanup
 
-Output Markdown only, clearly labeled with intended file paths.`;
+Output everything as a single continuous Markdown document. Use headings to label each section with its intended path.`;
 }

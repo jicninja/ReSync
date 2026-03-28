@@ -35,6 +35,11 @@ export const PHASE_ANALYZED = 'analyzed' as const;
 export const PHASE_GENERATED = 'generated' as const;
 export const PHASE_ORDER = [PHASE_EMPTY, PHASE_INGESTED, PHASE_ANALYZED, PHASE_GENERATED] as const;
 
+// ── AI Pipeline Phases (for multi-engine routing) ──────────────────
+export const PHASE_ANALYZE = 'analyze' as const;
+export const PHASE_GENERATE = 'generate' as const;
+export const AI_PIPELINE_PHASES = [PHASE_ANALYZE, PHASE_GENERATE] as const;
+
 // ── Context Source Roles ─────────────────────────────────────────────
 export const CONTEXT_ROLES = [
   'backend',
@@ -66,6 +71,21 @@ export const RAW_KEY_FILES = [
   'repo/env-vars.md',
   '_manifest.md',
 ];
+
+// ── TUI ─────────────────────────────────────────────────────────────
+export const DECISIONS_FILENAME = '_decisions.md';
+export const TUI_BRAND_COLOR = '#EF9F27';
+
+// ── Confidence ──────────────────────────────────────────────────────
+export const CONFIDENCE_HIGH = 'HIGH' as const;
+export const CONFIDENCE_MEDIUM = 'MEDIUM' as const;
+export const CONFIDENCE_LOW = 'LOW' as const;
+export const CONFIDENCE_LEVELS = [CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_LOW] as const;
+export const CONFIDENCE_TO_FLOAT: Record<string, number> = {
+  HIGH: 0.9,
+  MEDIUM: 0.6,
+  LOW: 0.3,
+};
 
 export const ANALYZED_KEY_FILES = [
   'domain/entities.md',

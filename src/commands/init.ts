@@ -37,7 +37,9 @@ export async function runInit(dir: string): Promise<void> {
       },
     },
     ai: {
-      engine: DEFAULT_AI_ENGINE,
+      engines: {
+        [DEFAULT_AI_ENGINE]: {},
+      },
       max_parallel: DEFAULT_MAX_PARALLEL,
       timeout: DEFAULT_AI_TIMEOUT_SECONDS,
     },
@@ -49,7 +51,23 @@ export async function runInit(dir: string): Promise<void> {
     },
   };
 
-  const yamlContent = stringify(defaultConfig);
+  let yamlContent = stringify(defaultConfig);
+
+  // Append multi-engine example as comments
+  yamlContent += `
+# Multi-engine alternative (use EITHER simple engines: {claude: {}} OR this advanced format):
+# ai:
+#   engines:
+#     claude:
+#       model: opus
+#       timeout: 900
+#     gemini:
+#       model: pro
+#   phases:
+#     analyze: [claude, gemini]
+#     generate: gemini
+`;
+
   fs.writeFileSync(configPath, yamlContent, 'utf-8');
   console.log(`Created ${CONFIG_FILENAME} at ${configPath}`);
 

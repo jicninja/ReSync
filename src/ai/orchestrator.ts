@@ -1,10 +1,15 @@
-import type { AIEngine, SubagentTask, SubagentResult } from './types.js';
+import type { AIEngine, SubagentTask, SubagentResult, EngineConfig } from './types.js';
 
 export class Orchestrator {
+  private readonly engines: AIEngine[];
+
   constructor(
-    private readonly engine: AIEngine,
+    engines: AIEngine | AIEngine[],
     private readonly config: { max_parallel: number; timeout: number },
-  ) {}
+    private readonly engineConfigs?: Record<string, EngineConfig>,
+  ) {
+    this.engines = Array.isArray(engines) ? engines : [engines];
+  }
 
   async runAll(tasks: SubagentTask[]): Promise<SubagentResult[]> {
     const results: SubagentResult[] = [];
@@ -24,24 +29,48 @@ export class Orchestrator {
 
   private async runOne(task: SubagentTask): Promise<SubagentResult> {
     const start = Date.now();
-    try {
-      const output = await this.engine.run(task.prompt, { timeout: this.config.timeout });
-      return {
-        id: task.id,
-        status: 'success',
-        output,
-        durationMs: Date.now() - start,
-      };
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      const status = error.includes('TIMEOUT') ? 'timeout' : 'failure';
-      return {
-        id: task.id,
-        status,
-        error,
-        durationMs: Date.now() - start,
-      };
+
+    for (let i = 0; i < this.engines.length; i++) {
+      const engine = this.engines[i];
+      const isLast = i === this.engines.length - 1;
+
+      try {
+        const perEngine = this.engineConfigs?.[engine.name] ?? {};
+        const output = await engine.run(task.prompt, {
+          timeout: perEngine.timeout ?? this.config.timeout,
+          model: perEngine.model,
+        });
+        return {
+          id: task.id,
+          status: 'success',
+          output,
+          engine: engine.name,
+          durationMs: Date.now() - start,
+        };
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+
+        if (isLast) {
+          const status = error.includes('TIMEOUT') ? 'timeout' : 'failure';
+          return {
+            id: task.id,
+            status,
+            error,
+            engine: engine.name,
+            durationMs: Date.now() - start,
+          };
+        }
+        // Not last engine — try next one
+      }
     }
+
+    // Should never reach here, but TypeScript needs it
+    return {
+      id: task.id,
+      status: 'failure',
+      error: 'No engines available',
+      durationMs: Date.now() - start,
+    };
   }
 
   private chunk<T>(arr: T[], size: number): T[][] {

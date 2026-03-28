@@ -14,6 +14,8 @@ export function buildADRPrompt(ctx: GeneratorContext): string {
 
   return `You are a senior software architect generating Architecture Decision Records (ADRs) for the project "${ctx.projectName}".
 
+IMPORTANT: You are running as a text-generation subprocess. Do NOT attempt to create files, use tools, or interact with any system. Your ONLY output is the raw Markdown text written to stdout. Everything you write goes directly into a single output file.
+
 Using the analyzed infrastructure and API artifacts below, identify and document the key architectural decisions as ADRs.
 
 ## Architecture
@@ -34,7 +36,7 @@ ${dataStorageContent || '(No data storage file found.)'}
 
 Identify all significant architectural decisions (technology choices, structural patterns, integration strategies, trade-offs made).
 
-For each decision, produce an ADR file saved as \`adrs/adr-NNN-{slug}.md\` (NNN is a zero-padded sequence number, slug is kebab-case title).
+For each decision, produce an ADR section labeled as \`adrs/adr-NNN-{slug}.md\` (NNN is a zero-padded sequence number, slug is kebab-case title).
 
 Each ADR must follow this template:
 
@@ -57,5 +59,5 @@ What becomes easier or more difficult as a result of this change?
 What other options were evaluated and why were they rejected?
 \`\`\`
 
-Output one ADR per architectural decision. Label each with its intended file path.`;
+Output all ADRs as a single continuous Markdown document. Use headings to label each ADR with its intended path (e.g., \`## adrs/adr-001-example.md\`).`;
 }

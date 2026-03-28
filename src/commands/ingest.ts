@@ -7,11 +7,13 @@ import { JiraIngestor } from '../ingestors/jira/index.js';
 import { DocsIngestor } from '../ingestors/docs/index.js';
 import { rawDir, writeMarkdown } from '../utils/fs.js';
 import { timestamp } from '../utils/markdown.js';
+import { createTUI } from '../tui/factory.js';
 
 export async function runIngest(
   dir: string,
-  options: { source?: string; force?: boolean }
+  options: { source?: string; force?: boolean; auto?: boolean; ci?: boolean }
 ): Promise<void> {
+  const tui = createTUI(options);
   const config = await loadConfig(dir);
   const state = new StateManager(dir);
   const outputDir = rawDir(dir);
@@ -25,36 +27,37 @@ export async function runIngest(
   let jiraRan = false;
   let docsRan = false;
 
+  tui.phaseHeader('INGEST', `Project: ${config.project.name}`);
+
   // Repo ingestor
   if (!sourceFilter || sourceFilter === 'repo') {
-    console.log('Ingesting repo...');
+    tui.progress('Scanning repository...');
     const repoIngestor = new RepoIngestor(config.sources.repo, outputDir);
     const result = await repoIngestor.ingest();
     repoFiles = result.files;
     repoRan = true;
-    console.log(`  Repo: ${repoFiles} files written`);
+    tui.success(`repo/ — ${repoFiles} artifacts`);
   }
 
   // Jira ingestor
   if ((!sourceFilter || sourceFilter === 'jira') && config.sources.jira) {
-    console.log('Ingesting Jira...');
+    tui.progress('Fetching Jira tickets...');
     const jiraIngestor = new JiraIngestor(config.sources.jira, outputDir);
     const result = await jiraIngestor.ingest();
     jiraTickets = result.files;
     jiraRan = true;
-    console.log(`  Jira: ${jiraTickets} artifacts written`);
+    tui.success(`jira/ — ${jiraTickets} artifacts`);
   } else if (sourceFilter === 'jira' && !config.sources.jira) {
-    console.warn('  Jira source not configured in respec.config.yaml — skipping');
+    tui.warn('Jira source not configured in respec.config.yaml — skipping');
   }
 
   // Context sources
   let contextCount = 0;
   if ((!sourceFilter || sourceFilter === 'context') && config.sources.context?.length) {
-    console.log(`Ingesting ${config.sources.context.length} context source(s)...`);
+    tui.progress(`Scanning ${config.sources.context.length} context source(s)...`);
     for (const ctxSource of config.sources.context) {
       const ctxName = ctxSource.name ?? path.basename(ctxSource.path);
       const ctxOutputDir = path.join(outputDir, 'context', ctxName);
-      console.log(`  [${ctxSource.role}] ${ctxName}`);
       const ctxIngestor = new RepoIngestor(
         { path: ctxSource.path, branch: ctxSource.branch, include: ctxSource.include, exclude: ctxSource.exclude },
         ctxOutputDir,
@@ -62,25 +65,27 @@ export async function runIngest(
       const result = await ctxIngestor.ingest();
       contextCount += result.files;
 
+      tui.contextBox(ctxName, ctxSource.role, { files: result.files });
+
       // Write a role marker so analyzers know this is context, not primary
       writeMarkdown(path.join(ctxOutputDir, '_context-role.md'),
         `# Context Source: ${ctxName}\n\n**Role:** ${ctxSource.role}\n**Path:** ${ctxSource.path}\n\nThis source provides context for analysis but is NOT the target of the SDD.\n`);
     }
-    console.log(`  Context: ${contextCount} total files across ${config.sources.context.length} source(s)`);
+    tui.success(`context/ — ${contextCount} total files across ${config.sources.context.length} source(s)`);
   } else if (sourceFilter === 'context' && !config.sources.context?.length) {
-    console.warn('  No context sources configured in respec.config.yaml — skipping');
+    tui.warn('No context sources configured in respec.config.yaml — skipping');
   }
 
   // Docs ingestor
   if ((!sourceFilter || sourceFilter === 'docs') && config.sources.docs) {
-    console.log('Ingesting docs...');
+    tui.progress('Ingesting documentation...');
     const docsIngestor = new DocsIngestor(config.sources.docs, outputDir, dir);
     const result = await docsIngestor.ingest();
     docsPages = result.files;
     docsRan = true;
-    console.log(`  Docs: ${docsPages} files written`);
+    tui.success(`docs/ — ${docsPages} files written`);
   } else if (sourceFilter === 'docs' && !config.sources.docs) {
-    console.warn('  Docs source not configured in respec.config.yaml — skipping');
+    tui.warn('Docs source not configured in respec.config.yaml — skipping');
   }
 
   // Write _manifest.md
@@ -114,6 +119,7 @@ export async function runIngest(
       repo: repoRan,
       jira: jiraRan,
       docs: docsRan,
+      context: contextCount > 0,
     },
     stats: {
       files: repoFiles,
@@ -122,5 +128,14 @@ export async function runIngest(
     },
   });
 
-  console.log('Ingest complete. Pipeline phase: ingested');
+  tui.phaseSummary('INGEST COMPLETE', [
+    { label: 'repo/', status: repoRan ? '✓' : '─', detail: repoRan ? `${repoFiles} artifacts` : 'skipped' },
+    { label: 'context/', status: contextCount > 0 ? '✓' : '─', detail: contextCount > 0 ? `${contextCount} files` : 'skipped' },
+    { label: 'jira/', status: jiraRan ? '✓' : '─', detail: jiraRan ? `${jiraTickets} artifacts` : config.sources.jira ? 'skipped' : 'not configured' },
+    { label: 'docs/', status: docsRan ? '✓' : '─', detail: docsRan ? `${docsPages} files` : config.sources.docs ? 'skipped' : 'not configured' },
+  ]);
+
+  tui.setPhase('ingest');
+  tui.writeDecisionLog(path.join(dir, '.respec'));
+  tui.destroy();
 }

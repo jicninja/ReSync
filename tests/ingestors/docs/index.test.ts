@@ -95,20 +95,69 @@ describe('DocsIngestor', () => {
     expect(result.artifacts).toHaveLength(0);
   });
 
-  it('writes confluence placeholder when confluence config is set', async () => {
-    const ingestor = new DocsIngestor(
-      { confluence: { host: 'https://example.atlassian.net', space: 'PROJ', auth: 'env:CONFLUENCE_TOKEN' } },
-      outputDir,
-      projectDir,
-    );
+  it('ingests confluence pages and writes manifest when confluence config is set', async () => {
+    // Set env var so resolveEnvAuth works
+    process.env['CONFLUENCE_TOKEN'] = 'user@example.com:fake-api-token';
 
-    const result = await ingestor.ingest();
+    // Mock fetch to return two pages then empty
+    let callCount = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      callCount++;
+      const results = callCount === 1
+        ? [
+            {
+              id: '1',
+              title: 'Getting Started',
+              body: { storage: { value: '<h1>Getting Started</h1><p>Welcome.</p>' } },
+              ancestors: [],
+            },
+            {
+              id: '2',
+              title: 'API Reference',
+              body: { storage: { value: '<h2>Endpoints</h2><p>See below.</p>' } },
+              ancestors: [{ id: '1', title: 'Getting Started' }],
+            },
+          ]
+        : [];
+      return {
+        ok: true,
+        json: async () => ({ results }),
+      } as any;
+    };
 
-    const placeholderPath = path.join(outputDir, 'docs', '_confluence-pending.md');
-    expect(fs.existsSync(placeholderPath)).toBe(true);
-    const content = fs.readFileSync(placeholderPath, 'utf-8');
-    expect(content).toContain('confluence');
-    expect(result.artifacts.some((a) => a.endsWith('_confluence-pending.md'))).toBe(true);
+    try {
+      const ingestor = new DocsIngestor(
+        { confluence: { host: 'https://example.atlassian.net', space: 'PROJ', auth: 'env:CONFLUENCE_TOKEN' } },
+        outputDir,
+        projectDir,
+      );
+
+      const result = await ingestor.ingest();
+
+      const confluenceDir = path.join(outputDir, 'docs', 'confluence');
+      expect(fs.existsSync(confluenceDir)).toBe(true);
+
+      // Pages written
+      expect(fs.existsSync(path.join(confluenceDir, 'getting-started.md'))).toBe(true);
+      expect(fs.existsSync(path.join(confluenceDir, 'api-reference.md'))).toBe(true);
+
+      // Manifest written
+      const manifestPath = path.join(confluenceDir, '_manifest.md');
+      expect(fs.existsSync(manifestPath)).toBe(true);
+      const manifest = fs.readFileSync(manifestPath, 'utf-8');
+      expect(manifest).toContain('Getting Started');
+      expect(manifest).toContain('API Reference');
+      expect(manifest).toContain('**Pages ingested:** 2');
+
+      // Artifacts include pages + manifest
+      expect(result.artifacts.some((a) => a.endsWith('getting-started.md'))).toBe(true);
+      expect(result.artifacts.some((a) => a.endsWith('_manifest.md'))).toBe(true);
+      expect(result.files).toBe(2);
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env['CONFLUENCE_TOKEN'];
+    }
   });
 
   it('recursively copies nested doc files from a directory', async () => {
