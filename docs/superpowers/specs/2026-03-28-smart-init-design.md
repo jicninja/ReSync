@@ -143,6 +143,62 @@ function detectSiblings(dir: string): SiblingRepo[]
 
 Reads parent directory, filters for directories with manifests, infers role from name patterns.
 
+## Jira & Docs Integration
+
+### CLI Mode (`respec init`)
+
+Jira and docs require credentials that can't be auto-detected. CLI appends a commented guide:
+
+```yaml
+# To add Jira and docs context, uncomment and configure:
+# sources:
+#   jira:
+#     host: https://company.atlassian.net
+#     auth: env:JIRA_API_TOKEN
+#     filters:
+#       projects: [PROJ]
+#   docs:
+#     confluence:
+#       host: https://company.atlassian.net/wiki
+#       space: ENG
+#       auth: env:CONFLUENCE_TOKEN
+#     local: ["./docs", "./README.md"]
+```
+
+### Wizard Mode
+
+Interactive step-by-step after context sources:
+
+```
+◇  Connect Jira for ticket context?
+│  ● Yes
+│  ○ No, skip
+
+◇  Jira host?
+│  https://company.atlassian.net
+
+◇  Jira auth (env variable name)?
+│  JIRA_API_TOKEN                    ← default suggestion
+
+◇  Filter by projects? (comma-separated, empty to skip)
+│  PROJ
+
+◇  Connect Confluence for docs?
+│  ● Yes
+│  ○ No, skip
+
+◇  Confluence host?
+│  https://company.atlassian.net/wiki
+
+◇  Confluence space key?
+│  ENG
+
+◇  Local docs paths? (comma-separated, empty to skip)
+│  ./docs, ./README.md
+```
+
+If user selects "No, skip" for both Jira and Confluence, no `jira:` or `docs:` section is added to the YAML. If local docs paths are provided without Confluence, only `docs.local` is written.
+
 ## Changes to Existing Code
 
 - `src/commands/init.ts` — replace hardcoded config with `detectProject()` + `detectSiblings()` results
