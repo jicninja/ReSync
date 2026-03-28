@@ -32,7 +32,7 @@ export async function runAnalyze(
   const orchestrator = new Orchestrator(engines, {
     max_parallel: config.ai.max_parallel,
     timeout: config.ai.timeout,
-  });
+  }, config.ai.engines);
 
   const rawPath = rawDir(dir);
   const analyzedPath = analyzedDir(dir);

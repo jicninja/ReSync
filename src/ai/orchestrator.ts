@@ -1,4 +1,4 @@
-import type { AIEngine, SubagentTask, SubagentResult } from './types.js';
+import type { AIEngine, SubagentTask, SubagentResult, EngineConfig } from './types.js';
 
 export class Orchestrator {
   private readonly engines: AIEngine[];
@@ -6,6 +6,7 @@ export class Orchestrator {
   constructor(
     engines: AIEngine | AIEngine[],
     private readonly config: { max_parallel: number; timeout: number },
+    private readonly engineConfigs?: Record<string, EngineConfig>,
   ) {
     this.engines = Array.isArray(engines) ? engines : [engines];
   }
@@ -34,7 +35,11 @@ export class Orchestrator {
       const isLast = i === this.engines.length - 1;
 
       try {
-        const output = await engine.run(task.prompt, { timeout: this.config.timeout });
+        const perEngine = this.engineConfigs?.[engine.name] ?? {};
+        const output = await engine.run(task.prompt, {
+          timeout: perEngine.timeout ?? this.config.timeout,
+          model: perEngine.model,
+        });
         return {
           id: task.id,
           status: 'success',

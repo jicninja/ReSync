@@ -56,7 +56,7 @@ export async function runGenerate(
   const orchestrator = new Orchestrator(engines, {
     max_parallel: config.ai.max_parallel,
     timeout: config.ai.timeout,
-  });
+  }, config.ai.engines);
 
   const analyzedPath = analyzedDir(dir);
   const outputDir = specsDir(dir, config.output.dir);

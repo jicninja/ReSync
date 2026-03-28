@@ -149,3 +149,37 @@ describe('Orchestrator with fallback chain', () => {
     expect(results[0].status).toBe('success');
   });
 });
+
+describe('Orchestrator per-engine config', () => {
+  it('passes per-engine timeout and model to engine.run()', async () => {
+    const engine = makeMockEngine(async () => 'result');
+    const orchestrator = new Orchestrator(
+      [engine],
+      { max_parallel: 4, timeout: 600 },
+      { mock: { timeout: 900, model: 'opus' } },
+    );
+
+    await orchestrator.runAll([tasks[0]]);
+
+    expect(engine.run).toHaveBeenCalledWith(
+      'Prompt 1',
+      expect.objectContaining({ timeout: 900, model: 'opus' }),
+    );
+  });
+
+  it('falls back to global timeout when per-engine timeout is not set', async () => {
+    const engine = makeMockEngine(async () => 'result');
+    const orchestrator = new Orchestrator(
+      [engine],
+      { max_parallel: 4, timeout: 600 },
+      { mock: {} },
+    );
+
+    await orchestrator.runAll([tasks[0]]);
+
+    expect(engine.run).toHaveBeenCalledWith(
+      'Prompt 1',
+      expect.objectContaining({ timeout: 600 }),
+    );
+  });
+});
