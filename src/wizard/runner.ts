@@ -17,16 +17,7 @@ export function getAutopilotSteps(state: WizardState): string[] {
   return PIPELINE_ORDER.slice(startIndex) as string[];
 }
 
-export async function runWithSpinner(
-  label: string,
-  fn: () => Promise<void>,
-): Promise<{ ok: boolean; error?: string }> {
-  const s = clack.spinner();
-  s.start(label);
-
-  // Suppress console.log/error from underlying commands — wizard owns the UI.
-  // We patch console methods instead of stdout.write so clack's spinner
-  // (which writes directly to stdout) keeps animating.
+function suppressConsole(): () => void {
   const origLog = console.log;
   const origError = console.error;
   const origWarn = console.warn;
@@ -36,22 +27,37 @@ export async function runWithSpinner(
   console.error = noop;
   console.warn = noop;
   console.info = noop;
+  return () => {
+    console.log = origLog;
+    console.error = origError;
+    console.warn = origWarn;
+    console.info = origInfo;
+  };
+}
+
+export async function runWithSpinner(
+  label: string,
+  fn: () => Promise<void>,
+): Promise<{ ok: boolean; error?: string }> {
+  // Wrap the sync-heavy command in a setImmediate so the spinner
+  // gets at least one paint before the event loop blocks.
+  const s = clack.spinner();
+  s.start(label);
+
+  const restore = suppressConsole();
 
   try {
+    // Yield to event loop so spinner paints at least once before
+    // sync-heavy commands (like ingest) block it.
+    await new Promise<void>((r) => setImmediate(r));
     await fn();
-    console.log = origLog;
-    console.error = origError;
-    console.warn = origWarn;
-    console.info = origInfo;
-    s.stop(`${label} — done`);
+    restore();
+    s.stop(`✔  ${label} — done`);
     return { ok: true };
   } catch (err) {
-    console.log = origLog;
-    console.error = origError;
-    console.warn = origWarn;
-    console.info = origInfo;
+    restore();
     const message = err instanceof Error ? err.message : String(err);
-    s.stop(`${label} — failed: ${message}`);
+    s.stop(`✖  ${label} — failed: ${message}`);
     return { ok: false, error: message };
   }
 }
