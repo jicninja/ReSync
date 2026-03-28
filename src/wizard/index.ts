@@ -13,8 +13,8 @@ import type { PipelinePhase } from '../state/types.js';
 async function executeCommand(command: string, dir: string): Promise<void> {
   switch (command) {
     case 'init': {
-      const { runInit } = await import('../commands/init.js');
-      await runInit(dir);
+      const { runInteractiveInit } = await import('./init-flow.js');
+      await runInteractiveInit(dir);
       break;
     }
     case 'ingest': {
