@@ -72,7 +72,7 @@ program
 program
   .command('export')
   .description('Package /specs/ into a Claude Code skill set or other format')
-  .option('--format <format>', 'Output format (kiro, openspec, antigravity, superpowers)')
+  .option('--format <format>', 'Output format (kiro, openspec, antigravity, superpowers, speckit, bmad)')
   .option('--output <dir>', 'Output directory (defaults to specs dir from config)')
   .action(wrapAction(async (cmdOpts: { format?: string; output?: string }) => {
     const globalOpts = program.opts();

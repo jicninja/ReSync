@@ -19,7 +19,9 @@ export const FORMAT_KIRO = 'kiro' as const;
 export const FORMAT_OPENSPEC = 'openspec' as const;
 export const FORMAT_ANTIGRAVITY = 'antigravity' as const;
 export const FORMAT_SUPERPOWERS = 'superpowers' as const;
-export const OUTPUT_FORMATS = [FORMAT_KIRO, FORMAT_OPENSPEC, FORMAT_ANTIGRAVITY, FORMAT_SUPERPOWERS] as const;
+export const FORMAT_SPECKIT = 'speckit' as const;
+export const FORMAT_BMAD = 'bmad' as const;
+export const OUTPUT_FORMATS = [FORMAT_KIRO, FORMAT_OPENSPEC, FORMAT_ANTIGRAVITY, FORMAT_SUPERPOWERS, FORMAT_SPECKIT, FORMAT_BMAD] as const;
 
 // ── AI Engines ──────────────────────────────────────────────────────
 export const ENGINE_CLAUDE = 'claude' as const;
