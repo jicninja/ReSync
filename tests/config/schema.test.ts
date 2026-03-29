@@ -223,4 +223,41 @@ describe('configSchema', () => {
     expect(result.data.ai.engines).toBeDefined();
     expect(result.data.ai.engines.claude).toBeDefined();
   });
+
+  describe('speckit mapping in output schema', () => {
+    it('accepts output.speckit with mapping array', () => {
+      const config = {
+        project: { name: 'test' },
+        sources: { repo: { path: '.' } },
+        output: {
+          format: 'speckit',
+          speckit: {
+            mapping: [
+              { name: 'auth', contexts: ['authentication', 'authorization'] },
+              { name: 'billing', contexts: ['payments'] },
+            ],
+          },
+        },
+      };
+      const result = configSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.output.speckit?.mapping).toHaveLength(2);
+        expect(result.data.output.speckit?.mapping?.[0].name).toBe('auth');
+      }
+    });
+
+    it('accepts output without speckit field', () => {
+      const config = {
+        project: { name: 'test' },
+        sources: { repo: { path: '.' } },
+        output: { format: 'openspec' },
+      };
+      const result = configSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.output.speckit).toBeUndefined();
+      }
+    });
+  });
 });
