@@ -18,7 +18,7 @@ export class BmadFormat implements FormatAdapter {
 
     await offerFrameworkInstall({
       name: 'BMAD Method',
-      checkPath: '_bmad',
+      checkPath: path.join(outputDir, '_bmad'),
       installCommand: 'npx bmad-method install',
       cwd: outputDir,
       ciMode,
