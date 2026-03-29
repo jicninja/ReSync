@@ -4,17 +4,27 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { KiroFormat } from '../../src/formats/kiro.js';
 import type { FormatContext } from '../../src/formats/types.js';
+import { configSchema } from '../../src/config/schema.js';
 
 let tmpDir: string;
 let outputDir: string;
 let analyzedDir: string;
 const adapter = new KiroFormat();
 
+const minimalConfig = configSchema.parse({
+  project: { name: 'TestProject', description: 'A test project description' },
+  sources: { repo: { path: '.' } },
+  output: { format: 'kiro' },
+});
+
 const baseContext: FormatContext = {
   projectName: 'TestProject',
   projectDescription: 'A test project description',
   sddContent: '# System Design Document\n\nContent here.',
   analyzedDir: '',
+  specsDir: '',
+  config: minimalConfig,
+  ciMode: false,
 };
 
 beforeEach(() => {

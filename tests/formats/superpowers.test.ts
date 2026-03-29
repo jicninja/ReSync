@@ -4,16 +4,26 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SuperpowersFormat } from '../../src/formats/superpowers.js';
 import type { FormatContext } from '../../src/formats/types.js';
+import { configSchema } from '../../src/config/schema.js';
 
 let tmpDir: string;
 let outputDir: string;
 const adapter = new SuperpowersFormat();
+
+const minimalConfig = configSchema.parse({
+  project: { name: 'TestProject', description: 'A test project description' },
+  sources: { repo: { path: '.' } },
+  output: { format: 'superpowers' },
+});
 
 const context: FormatContext = {
   projectName: 'TestProject',
   projectDescription: 'A test project description',
   sddContent: '# System Design Document\n\nContent here.',
   analyzedDir: '',
+  specsDir: '',
+  config: minimalConfig,
+  ciMode: false,
 };
 
 const SKILL_NAMES = [

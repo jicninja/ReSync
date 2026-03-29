@@ -138,6 +138,9 @@ export async function runGenerate(
     projectDescription: config.project.description ?? '',
     sddContent,
     analyzedDir: analyzedPath,
+    specsDir: outputDir,
+    config,
+    ciMode: !!options.ci,
   };
 
   await adapter.package(outputDir, outputDir, formatContext);
