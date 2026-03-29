@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ensureDir, writeMarkdown } from '../utils/fs.js';
+import { parseSectionHeaders, toKebabCase } from './context-parser.js';
 import type { FormatAdapter, FormatContext } from './types.js';
 
 function readIfExists(filePath: string): string {
@@ -9,29 +10,6 @@ function readIfExists(filePath: string): string {
   } catch {
     return '';
   }
-}
-
-/**
- * Parse ## SectionName headers from markdown content.
- * Returns an array of context names (e.g. ["OrderManagement", "UserAuth"]).
- */
-function parseSectionHeaders(content: string): string[] {
-  const headers: string[] = [];
-  for (const line of content.split('\n')) {
-    const match = line.match(/^##\s+(.+)$/);
-    if (match) {
-      headers.push(match[1].trim());
-    }
-  }
-  return headers;
-}
-
-function toKebabCase(name: string): string {
-  return name
-    .replace(/([a-z])([A-Z])/g, '$1-$2')
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^a-zA-Z0-9-]/g, '')
-    .toLowerCase();
 }
 
 export class KiroFormat implements FormatAdapter {
