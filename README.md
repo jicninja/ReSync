@@ -150,6 +150,20 @@ respec diff --phase specs      # only specs
 
 Snapshots are taken automatically before each analyze/generate run.
 
+## Push to Jira
+
+Export generated tasks directly to Jira as epics and stories:
+
+```bash
+respec push jira                              # create epics + stories
+respec push jira --epics-only                 # only epics
+respec push jira --project NEWPROJ            # specific target project
+respec push jira --prefix "[Migration v2]"    # custom prefix (default: [ReSpec])
+respec push jira --dry-run                    # preview without creating
+```
+
+Issues are created with a `respec` label for easy JQL filtering (`labels = respec`). Uses Jira credentials from `sources.jira` in your config.
+
 ## TUI Modes
 
 Individual commands support three modes:
@@ -261,6 +275,7 @@ Credentials always use the `env:` prefix — never stored in the config file.
 | `respec export` | Repackages specs into a different output format |
 | `respec review` | AI review of specs — detect hallucinations |
 | `respec diff` | Show changes since last analyze/generate run |
+| `respec push jira` | Push tasks to Jira as epics + stories |
 | `respec status` | Shows pipeline state and phase progress |
 | `respec validate` | Checks integrity of phase outputs |
 
