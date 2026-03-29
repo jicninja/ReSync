@@ -28,7 +28,7 @@ Add two new output formats to ReSpec's export system: `speckit` (GitHub Spec Kit
       data-model.md              <- entities for this context
       tasks.md                   <- implementation tasks
       contracts/
-        api-spec.json            <- API contracts relevant to context
+        api-spec.md              <- API contracts relevant to context (Markdown)
 ```
 
 ### Mapping Strategies
@@ -64,8 +64,8 @@ Multiple bounded contexts can be merged into a single feature directory.
 | `plan.md` | SDD architecture sections + infra/architecture.md + tech stack |
 | `research.md` | dependencies.md + api/external-deps.md |
 | `data-model.md` | domain/entities.md filtered by context |
-| `tasks.md` | task-gen output filtered by context |
-| `api-spec.json` | api/contracts.md converted to JSON schema |
+| `tasks.md` | task-gen output from `specsDir` (phase 3), filtered by context |
+| `contracts/api-spec.md` | api/contracts.md content filtered to relevant context (Markdown, not JSON — avoids lossy MD→JSON conversion) |
 
 ### Hybrid Install Flow
 
@@ -104,7 +104,7 @@ _bmad-output/
 | `architecture.md` | SDD sections 5-8 + infra/architecture.md + infra/data-storage.md |
 | `ux-spec.md` | flows/user-flows.md + flows/data-flows.md |
 | `epic-N-name.md` | domain/bounded-contexts.md (1 epic per context) |
-| `story-slug.md` | task-gen output grouped by epic/context |
+| `story-slug.md` | task-gen output from `specsDir` (phase 3), grouped by epic/context |
 | `project-context.md` | config project info + domain/glossary.md + rules/permissions.md |
 | `sprint-status.yaml` | Empty scaffold with epic list |
 
@@ -189,14 +189,16 @@ Order doesn't matter here — `_bmad/` (framework) and `_bmad-output/` (artefact
 | `src/constants.ts` | Add `FORMAT_SPECKIT = 'speckit'`, `FORMAT_BMAD = 'bmad'` to `OUTPUT_FORMATS` |
 | `src/formats/factory.ts` | Add cases for both formats, update error message |
 
+| `src/formats/types.ts` | Extend `FormatContext` with `config` and `ciMode` fields (see below) |
+| `src/config/schema.ts` | Add `speckit` mapping schema to `outputSchema` |
+| `src/commands/export.ts` | Pass full config and CI flag into `FormatContext` |
+| `bin/respec.ts` | Update `--format` help text to include `speckit, bmad` |
+
 ### No Changes Needed
 
 | File | Reason |
 |---|---|
-| `src/formats/types.ts` | `FormatAdapter` interface sufficient as-is |
-| `src/config/schema.ts` | Already reads from `OUTPUT_FORMATS` constant |
 | `src/wizard/init-flow.ts` | Already reads from `OUTPUT_FORMATS` constant |
-| `src/commands/export.ts` | Works with any `FormatAdapter` |
 
 ### Config Schema Addition
 
@@ -219,36 +221,45 @@ const outputSchema = z.object({
 });
 ```
 
-## FormatAdapter Interface
+## FormatContext Extension
 
-The existing interface is sufficient:
+The `FormatContext` interface must be extended to support config access and CI detection:
 
 ```typescript
-export interface FormatAdapter {
-  name: string;
-  package(specsDir: string, outputDir: string, context: FormatContext): Promise<void>;
+export interface FormatContext {
+  projectName: string;
+  projectDescription: string;
+  sddContent: string;
+  analyzedDir: string;
+  specsDir: string;       // NEW: path to specs/ (phase 3 output, for task-gen files)
+  config: ReSpecConfig;   // NEW: full config (for speckit.mapping)
+  ciMode: boolean;        // NEW: true in --ci mode (suppresses interactive prompts)
 }
 ```
 
-The hybrid install prompt happens inside `package()`. Both formats use `FormatContext.analyzedDir` to read source artefacts, and `FormatContext.sddContent` for the SDD text.
+`specsDir` is needed because task-gen output lives in phase 3 output (`specs/`), not phase 2 (`analyzed/`). Both Spec Kit and BMAD read tasks from `specsDir`. The `export.ts` command already has access to all three values — it just needs to pass them through.
+
+The hybrid install prompt happens inside `package()`. In CI mode, the prompt is skipped and a log message is emitted instead.
 
 ## Bounded Context Parsing
 
-Both formats need to parse bounded contexts from `domain/bounded-contexts.md`. This is shared logic — extract into a utility:
+Both formats need to parse bounded contexts from `domain/bounded-contexts.md`. The existing `kiro.ts` has a local `parseSectionHeaders()` that extracts `##` headers — this logic should be extracted into a shared utility that replaces kiro's local function.
 
 ```typescript
 // src/formats/context-parser.ts
 export interface BoundedContext {
-  name: string;
-  slug: string;
-  description: string;
-  entities: string[];
+  name: string;       // original header text
+  slug: string;       // kebab-case for directory/file names
+  description: string; // content between this ## header and the next
+  entities: string[]; // entity names mentioned in the description (best-effort grep)
 }
 
 export function parseBoundedContexts(analyzedDir: string): BoundedContext[];
 ```
 
-Used by `SpecKitFormat` for feature directories and by `BmadFormat` for epic generation.
+**Parsing contract**: `bounded-contexts.md` uses `##` headers for each context. Everything between two `##` headers is that context's description. Entity names are extracted by matching references to entries in `domain/entities.md` (cross-reference by name). Returns empty array if file doesn't exist or has no `##` headers.
+
+Used by `SpecKitFormat` for feature directories, `BmadFormat` for epic generation, and `KiroFormat` (replacing its local parser).
 
 ## Hybrid Install Implementation
 
@@ -261,10 +272,17 @@ export async function offerFrameworkInstall(options: {
   checkPath: string;
   installCommand: string;
   cwd: string;
+  ciMode: boolean;
 }): Promise<boolean>;
 ```
 
-Uses `@clack/prompts` for the interactive prompt. In CI mode (`--ci` flag), skips the prompt and logs a message instead.
+**Behavior:**
+- If `checkPath` exists, returns `false` (already installed, skip)
+- If `ciMode` is `true`, logs "Skipping {name} install (CI mode). Run `{installCommand}` manually." and returns `false`
+- Otherwise, prompts via `@clack/prompts` confirm
+- If user accepts, spawns child process with `execSync(installCommand, { cwd, stdio: 'inherit' })`
+- On failure (command not found, non-zero exit): catches error, logs warning with the install command for manual execution, returns `false`. The export continues — framework install is optional, artefact generation is not.
+- Returns `true` only if install succeeded
 
 ## Testing Strategy
 
