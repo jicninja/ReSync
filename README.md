@@ -21,8 +21,8 @@ respec ingest       → reads repo, Jira, docs → .respec/raw/
   ↓  (you review the raw data)
 respec analyze      → AI extracts domain model, rules, flows → .respec/analyzed/
   ↓  (you validate the analysis)
-respec generate     → produces final specs → /specs/
-respec export       → repackages specs into a different format
+respec generate     → produces specs → .respec/generated/
+respec export       → formats output → project root (kiro, openspec, etc.)
 ```
 
 Each phase produces Markdown files. You review and edit between phases. Every command is idempotent.
@@ -99,7 +99,7 @@ Run `respec` with no arguments to launch the interactive wizard:
   - Add instructions to refine remaining AI prompts
   - Retry a task with different instructions
   - Resume or abort
-- **Start fresh** — wipes `.respec/` and `specs/`, then re-runs the full pipeline from scratch
+- **Start fresh** — wipes `.respec/`, then re-runs the full pipeline from scratch
 
 ## Smart Init
 
@@ -197,10 +197,10 @@ ReSpec generates specs in six formats. Set `output.format` in your config or use
 | **bmad** | BMAD Method | `_bmad-output/` with PRD, architecture, epics, project-context |
 
 ```bash
-# Generate in your default format
+# Generate raw specs (format-independent)
 respec generate
 
-# Export to a different format
+# Export to a specific format
 respec export --format kiro --output ./kiro-specs
 respec export --format superpowers --output ./claude-specs
 ```
@@ -255,7 +255,7 @@ ai:
   timeout: 600
 
 output:
-  dir: ./specs
+  # dir: ./custom-output       # optional — omit to use .respec/generated/
   format: openspec             # kiro | openspec | antigravity | superpowers | speckit | bmad
   diagrams: mermaid
   tasks: true
@@ -273,8 +273,8 @@ Credentials always use the `env:` prefix — never stored in the config file.
 | `respec init` | Smart init — auto-detects project from manifests |
 | `respec ingest` | Reads repo, Jira, docs into `.respec/raw/` |
 | `respec analyze` | AI analysis of raw data into `.respec/analyzed/` |
-| `respec generate` | Produces final specs in the configured format |
-| `respec export` | Repackages specs into a different output format |
+| `respec generate` | Produces specs to `.respec/generated/` |
+| `respec export` | Reads generated specs and writes formatted output to project root |
 | `respec review` | AI review of specs — detect hallucinations |
 | `respec diff` | Show changes since last analyze/generate run |
 | `respec push jira` | Push tasks to Jira as epics + stories |
@@ -283,7 +283,7 @@ Credentials always use the `env:` prefix — never stored in the config file.
 
 **Global flags:**
 - `--autopilot` — run full remaining pipeline without interaction
-- `--reset` — wipe `.respec/` and `specs/` before running
+- `--reset` — wipe `.respec/` before running
 - `--ci` — CI mode (no colors, no interaction)
 - `--auto` — auto-continue mode
 

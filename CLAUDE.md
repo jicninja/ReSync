@@ -24,8 +24,8 @@
     ↓ (human reviews, removes noise)
   respec analyze  → AI subagents → /.respec/analyzed/
     ↓ (human validates domain, flows, rules)
-  respec generate → produces specs → /specs/
-  respec export   → repackages into kiro|openspec|antigravity|superpowers|speckit|bmad
+  respec generate → produces specs → /.respec/generated/
+  respec export   → formats and writes output → project root (kiro|openspec|antigravity|superpowers|speckit|bmad)
   ```
 
   ## CLI Commands
@@ -37,8 +37,8 @@
   | `respec init` | Smart init — auto-detects project from manifests | `--repo <path\|url>` |
   | `respec ingest` | Reads all sources to `/.respec/raw/` | `--source repo\|context\|jira\|docs` |
   | `respec analyze` | AI analysis to `/.respec/analyzed/` | `--only <analyzer>` `--force` |
-  | `respec generate` | Generates specs in configured format | `--only <generator>` `--force` |
-  | `respec export` | Repackages specs into a different format | `--format kiro\|openspec\|antigravity\|superpowers\|speckit\|bmad` `--output <dir>` |
+  | `respec generate` | Generates specs to `/.respec/generated/` | `--only <generator>` `--force` |
+  | `respec export` | Reads from `.respec/generated/` and writes formatted output | `--format kiro\|openspec\|antigravity\|superpowers\|speckit\|bmad` `--output <dir>` |
   | `respec review` | AI review — detect hallucinations in specs | `--verbose` |
   | `respec diff` | Show changes since last analyze/generate run | `--phase analyzed\|specs` |
   | `respec push jira` | Push tasks to Jira as epics + stories | `--project` `--prefix` `--epics-only` `--dry-run` |
@@ -113,7 +113,7 @@
     # converted to the new format at runtime.
 
   output:
-    dir: string                    # default: ./specs
+    dir: string                    # optional — when omitted, .respec/generated/ is used
     format: kiro | openspec | antigravity | superpowers | speckit | bmad   # default: openspec
     diagrams: mermaid | none
     tasks: boolean
@@ -185,9 +185,9 @@
   └── _analysis-report.md
   ```
 
-  ### Phase 3: `/specs/` (format-dependent)
+  ### Phase 3: `/.respec/generated/`
 
-  Output varies by `output.format`. See SDD section 8.3 for full directory layouts.
+  Raw generated specs (SDD, ERDs, flows, ADRs, tasks). Format-independent. `respec export` reads from here and writes format-specific output to the project root.
 
   ## Analyzers
 
@@ -265,7 +265,7 @@
 
   ## Push to External Services
 
-  `respec push jira` creates Jira issues from `specs/tasks/epics.md`. Code lives in `src/push/`:
+  `respec push jira` creates Jira issues from `.respec/generated/tasks/epics.md`. Code lives in `src/push/`:
 
   - `epic-parser.ts` — `parseEpics(markdown)` extracts typed `Epic[]` with `Story[]` children from the task-gen markdown output. Tolerant parser handles format variations.
   - `jira-pusher.ts` — `createJiraIssues(client, epics, options)` creates Epic and Story issues in Jira with configurable prefix (default `[ReSpec]`) and `respec` label on all issues.
@@ -313,7 +313,7 @@
   Any path, URL, or resource from config or user input must be validated before use. Check `fs.existsSync()` before reading directories, verify URLs are reachable before fetching. Never silently swallow ENOENT or ECONNREFUSED — surface a clear error.
 
   ### Registry is the single source of truth for paths
-  `reads` and `produces` in analyzer/generator registries are relative to their phase root (`rawDir` for reads, `analyzedDir` for produces). Two rules:
+  `reads` and `produces` in analyzer/generator registries are relative to their phase root (`rawDir` for reads, `analyzedDir` for analyzer produces, `generatedDir` for generator produces). Two rules:
   1. **No phase prefixes in registry paths** — never include `raw/` or `analyzed/` since the consuming code already resolves against the phase root. Duplicating the prefix causes silent path misses (e.g., `.respec/raw/raw/repo/...`).
   2. **No hardcoded paths that duplicate registry data** — if code needs to reference another tier's output files, read them from the registry (`getAnalyzersByTier`, `getGeneratorsByTier`) instead of hardcoding paths. This prevents drift when registry entries change.
 
