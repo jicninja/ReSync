@@ -142,11 +142,19 @@ const aiSchema = z.preprocess(
 export const outputFormatEnum = z.enum(OUTPUT_FORMATS);
 export type OutputFormat = z.infer<typeof outputFormatEnum>;
 
+const speckitMappingSchema = z.object({
+  mapping: z.array(z.object({
+    name: z.string(),
+    contexts: z.array(z.string()),
+  })).optional(),
+}).optional();
+
 const outputSchema = z.object({
   dir: z.string().default(DEFAULT_OUTPUT_DIR),
   format: outputFormatEnum.default(DEFAULT_OUTPUT_FORMAT),
   diagrams: z.enum(['mermaid', 'none']).default(DEFAULT_DIAGRAM_TYPE),
   tasks: z.boolean().default(true),
+  speckit: speckitMappingSchema,
 });
 
 export const configSchema = z.object({

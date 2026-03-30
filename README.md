@@ -185,7 +185,7 @@ When running in `--auto` mode, all decisions are logged to `.respec/_decisions.m
 
 ## Output formats
 
-ReSpec generates specs in four formats. Set `output.format` in your config or use `respec export --format`:
+ReSpec generates specs in six formats. Set `output.format` in your config or use `respec export --format`:
 
 | Format | Target | What it creates |
 |--------|--------|-----------------|
@@ -193,6 +193,8 @@ ReSpec generates specs in four formats. Set `output.format` in your config or us
 | **openspec** | Any agent | `openspec/` with capability specs, RFC 2119 requirements, GIVEN/WHEN/THEN scenarios |
 | **antigravity** | Google Antigravity | `GEMINI.md` + `AGENTS.md` + `.agent/rules/` |
 | **superpowers** | Claude Code | `CLAUDE.md` + `skills/` with YAML frontmatter for discovery |
+| **speckit** | GitHub Spec Kit | `.specify/memory/` + `.specify/specs/` with per-feature spec/plan/tasks |
+| **bmad** | BMAD Method | `_bmad-output/` with PRD, architecture, epics, project-context |
 
 ```bash
 # Generate in your default format
@@ -254,7 +256,7 @@ ai:
 
 output:
   dir: ./specs
-  format: openspec             # kiro | openspec | antigravity | superpowers
+  format: openspec             # kiro | openspec | antigravity | superpowers | speckit | bmad
   diagrams: mermaid
   tasks: true
 ```
@@ -289,7 +291,7 @@ Credentials always use the `env:` prefix — never stored in the config file.
 - `--repo <path|url>` — repository path or git URL (init)
 - `--source repo|context|jira|docs` — run a single ingestor
 - `--only <analyzer|generator>` — run a single analyzer or generator
-- `--format kiro|openspec|antigravity|superpowers` — target format for export
+- `--format kiro|openspec|antigravity|superpowers|speckit|bmad` — target format for export
 - `--force` — bypass prerequisite checks
 - `--verbose` — detailed output
 

@@ -32,6 +32,9 @@ export async function runExport(
     projectDescription: config.project.description ?? '',
     sddContent,
     analyzedDir: analyzedPath,
+    specsDir: inputDir,
+    config,
+    ciMode: !!options.ci,
   };
 
   tui.phaseHeader('EXPORT', `Format: ${format}`);
