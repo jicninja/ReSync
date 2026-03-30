@@ -28,7 +28,7 @@ const baseContext: FormatContext = {
   projectDescription: 'A test project',
   sddContent: '# System Design Document\n\nContent here.',
   analyzedDir: '',
-  specsDir: '',
+  generatedDir: '',
   config: minimalConfig,
   ciMode: false,
 };

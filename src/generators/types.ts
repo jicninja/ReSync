@@ -7,7 +7,7 @@ export interface GeneratorDef {
 
 export interface GeneratorContext {
   analyzedDir: string;
-  specsDir: string;
+  generatedDir: string;
   projectName: string;
   format: string;
 }

@@ -3,7 +3,6 @@ import {
   DEFAULT_AI_ENGINE,
   DEFAULT_AI_TIMEOUT_SECONDS,
   DEFAULT_MAX_PARALLEL,
-  DEFAULT_OUTPUT_DIR,
   DEFAULT_OUTPUT_FORMAT,
   DEFAULT_DIAGRAM_TYPE,
   DEFAULT_REPO_BRANCH,
@@ -150,7 +149,7 @@ const speckitMappingSchema = z.object({
 }).optional();
 
 const outputSchema = z.object({
-  dir: z.string().default(DEFAULT_OUTPUT_DIR),
+  dir: z.string().optional(),
   format: outputFormatEnum.default(DEFAULT_OUTPUT_FORMAT),
   diagrams: z.enum(['mermaid', 'none']).default(DEFAULT_DIAGRAM_TYPE),
   tasks: z.boolean().default(true),

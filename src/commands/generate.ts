@@ -5,8 +5,7 @@ import { StateManager } from '../state/manager.js';
 import { createEngineChain } from '../ai/factory.js';
 import { Orchestrator } from '../ai/orchestrator.js';
 import { getGeneratorsByTier, getGeneratorRegistry } from '../generators/registry.js';
-import { createFormatAdapter } from '../formats/factory.js';
-import { analyzedDir, specsDir, writeMarkdown } from '../utils/fs.js';
+import { analyzedDir, generatedDir, writeMarkdown } from '../utils/fs.js';
 import { PHASE_ANALYZED, PHASE_GENERATE, RESPEC_DIR } from '../constants.js';
 import { takeSnapshot } from '../diff/snapshot.js';
 import { createTUI } from '../tui/factory.js';
@@ -61,11 +60,11 @@ export async function runGenerate(
   }, config.ai.engines);
 
   const analyzedPath = analyzedDir(dir);
-  const outputDir = specsDir(dir, config.output.dir);
+  const outputDir = generatedDir(dir, config.output.dir);
 
   const generatorCtx: GeneratorContext = {
     analyzedDir: analyzedPath,
-    specsDir: outputDir,
+    generatedDir: outputDir,
     projectName: config.project.name,
     format,
   };
@@ -136,27 +135,6 @@ export async function runGenerate(
     }
   }
 
-  // Now run the format adapter to package the generated specs
-  tui.progress(`Packaging as ${format}...`);
-  const adapter = createFormatAdapter(format);
-
-  const sddPath = path.join(outputDir, 'sdd.md');
-  const sddContent = fs.existsSync(sddPath)
-    ? fs.readFileSync(sddPath, 'utf-8')
-    : '';
-
-  const formatContext = {
-    projectName: config.project.name,
-    projectDescription: config.project.description ?? '',
-    sddContent,
-    analyzedDir: analyzedPath,
-    specsDir: outputDir,
-    config,
-    ciMode: !!options.ci,
-  };
-
-  await adapter.package(outputDir, outputDir, formatContext);
-  tui.success(`Packaged as ${format}`);
 
   state.completeGenerate({
     generators_run: generatorsRun,

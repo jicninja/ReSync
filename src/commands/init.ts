@@ -5,7 +5,6 @@ import {
   DEFAULT_AI_ENGINE,
   DEFAULT_AI_TIMEOUT_SECONDS,
   DEFAULT_MAX_PARALLEL,
-  DEFAULT_OUTPUT_DIR,
   DEFAULT_OUTPUT_FORMAT,
   DEFAULT_DIAGRAM_TYPE,
   DEFAULT_REPO_BRANCH,
@@ -57,7 +56,6 @@ export async function runInit(dir: string, options?: InitOptions): Promise<void>
       timeout: DEFAULT_AI_TIMEOUT_SECONDS,
     },
     output: {
-      dir: DEFAULT_OUTPUT_DIR,
       format: DEFAULT_OUTPUT_FORMAT,
       diagrams: DEFAULT_DIAGRAM_TYPE,
       tasks: true,

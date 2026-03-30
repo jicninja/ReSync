@@ -8,7 +8,7 @@ function readFile(filePath: string): string {
 }
 
 export function buildTaskPrompt(ctx: GeneratorContext): string {
-  const sddContent = readFile(path.join(ctx.specsDir, 'sdd.md'));
+  const sddContent = readFile(path.join(ctx.generatedDir, 'sdd.md'));
   const businessRulesContent = readFile(path.join(ctx.analyzedDir, 'rules', 'business-rules.md'));
   const userFlowsContent = readFile(path.join(ctx.analyzedDir, 'flows', 'user-flows.md'));
   const entitiesContent = readFile(path.join(ctx.analyzedDir, 'domain', 'entities.md'));

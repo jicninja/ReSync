@@ -48,7 +48,7 @@ export class SpecKitFormat implements FormatAdapter {
     const dependencies = rawDir ? readIfExists(path.join(rawDir, 'repo', 'dependencies.md')) : '';
 
     // Read tasks from specs dir
-    const tasksContent = context.specsDir ? readIfExists(path.join(context.specsDir, 'tasks.md')) : '';
+    const tasksContent = context.generatedDir ? readIfExists(path.join(context.generatedDir, 'tasks.md')) : '';
 
     // Generate constitution.md
     const sddIntro = sddContent ? sddContent.split('\n').slice(0, 30).join('\n') : '';

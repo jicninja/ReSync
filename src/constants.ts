@@ -2,7 +2,6 @@
 export const DEFAULT_AI_ENGINE = 'claude' as const;
 export const DEFAULT_AI_TIMEOUT_SECONDS = 600;
 export const DEFAULT_MAX_PARALLEL = 4;
-export const DEFAULT_OUTPUT_DIR = './specs';
 export const DEFAULT_OUTPUT_FORMAT = 'openspec' as const;
 export const DEFAULT_DIAGRAM_TYPE = 'mermaid' as const;
 export const DEFAULT_REPO_BRANCH = 'main';
@@ -11,6 +10,7 @@ export const DEFAULT_REPO_BRANCH = 'main';
 export const RESPEC_DIR = '.respec';
 export const RAW_DIR_NAME = 'raw';
 export const ANALYZED_DIR_NAME = 'analyzed';
+export const GENERATED_DIR_NAME = 'generated';
 export const STATE_FILENAME = 'state.json';
 export const CONFIG_FILENAME = 'respec.config.yaml';
 

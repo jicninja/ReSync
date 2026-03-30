@@ -10,7 +10,7 @@ export interface FormatContext {
   projectDescription: string;
   sddContent: string;
   analyzedDir: string;
-  specsDir: string;
+  generatedDir: string;
   config: ReSpecConfig;
   ciMode: boolean;
 }

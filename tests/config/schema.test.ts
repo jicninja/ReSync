@@ -26,7 +26,7 @@ describe('configSchema', () => {
 
     const data = result.data;
     expect(data.sources.repo.branch).toBe('main');
-    expect(data.output.dir).toBe('./specs');
+    expect(data.output.dir).toBeUndefined();
     expect(data.output.format).toBe('openspec');
     expect(data.output.diagrams).toBe('mermaid');
     expect(data.output.tasks).toBe(true);

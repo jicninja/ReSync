@@ -9,7 +9,6 @@ import {
   DEFAULT_AI_ENGINE,
   DEFAULT_AI_TIMEOUT_SECONDS,
   DEFAULT_MAX_PARALLEL,
-  DEFAULT_OUTPUT_DIR,
   DEFAULT_DIAGRAM_TYPE,
   RESPEC_DIR,
   CONFIG_FILENAME,
@@ -198,7 +197,6 @@ export async function runInteractiveInit(dir: string): Promise<void> {
       timeout: DEFAULT_AI_TIMEOUT_SECONDS,
     },
     output: {
-      dir: DEFAULT_OUTPUT_DIR,
       format: format as string,
       diagrams: DEFAULT_DIAGRAM_TYPE,
       tasks: true,

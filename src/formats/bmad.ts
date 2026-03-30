@@ -38,7 +38,7 @@ export class BmadFormat implements FormatAdapter {
     const externalDeps = analyzedDir ? readIfExists(path.join(analyzedDir, 'api', 'external-deps.md')) : '';
     const glossary = analyzedDir ? readIfExists(path.join(analyzedDir, 'domain', 'glossary.md')) : '';
     const permissions = analyzedDir ? readIfExists(path.join(analyzedDir, 'rules', 'permissions.md')) : '';
-    const tasks = context.specsDir ? readIfExists(path.join(context.specsDir, 'tasks.md')) : '';
+    const tasks = context.generatedDir ? readIfExists(path.join(context.generatedDir, 'tasks.md')) : '';
 
     // planning-artifacts/PRD.md
     const prdParts: string[] = [

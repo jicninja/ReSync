@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Version2Client } from 'jira.js';
 import { loadConfig, resolveEnvAuth } from '../config/loader.js';
-import { specsDir } from '../utils/fs.js';
+import { generatedDir } from '../utils/fs.js';
 import { parseEpics } from '../push/epic-parser.js';
 import { createJiraIssues } from '../push/jira-pusher.js';
 
@@ -22,7 +22,7 @@ export async function runPushJira(
     throw new Error('Jira not configured in respec.config.yaml. Add sources.jira with host and auth.');
   }
 
-  const outputDir = specsDir(dir, config.output.dir);
+  const outputDir = generatedDir(dir, config.output.dir);
   const epicsPath = path.join(outputDir, 'tasks', 'epics.md');
 
   if (!fs.existsSync(epicsPath)) {
