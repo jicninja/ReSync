@@ -18,6 +18,7 @@ import { buildTaskPrompt } from '../generators/task-gen.js';
 import { buildFormatPrompt } from '../generators/format-gen.js';
 import { buildToolkitPrompt } from '../generators/toolkit-gen.js';
 import { extractJSON } from '../toolkit/json-parser.js';
+import { appendIntentToPrompt } from '../pipeline/intent.js';
 import { validatePackages, isNpmAvailable } from '../toolkit/validator.js';
 import type { SubagentTask } from '../ai/types.js';
 import type { GeneratorContext } from '../generators/types.js';
@@ -116,6 +117,7 @@ export async function runGenerate(
         }
         prompt = buildPrompt(generatorCtx);
       }
+      prompt = appendIntentToPrompt(prompt, config.project.intent, config.project.context_notes);
 
       return {
         id: generator.id,

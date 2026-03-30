@@ -14,6 +14,7 @@ import { PHASE_INGESTED, PHASE_ANALYZE, RESPEC_DIR } from '../constants.js';
 import { parseConfidence, confidenceToFloat } from '../analyzers/confidence-parser.js';
 import { createTUI } from '../tui/factory.js';
 import { loadPromptTemplate } from '../prompts/loader.js';
+import { appendIntentToPrompt } from '../pipeline/intent.js';
 
 export async function runAnalyze(
   dir: string,
@@ -215,9 +216,11 @@ export async function runAnalyze(
         .replace('{{CONTEXT_SOURCES}}', contextSourcesSection)
         .replace('{{TIER1_OUTPUT}}', tier1OutputSection);
 
+      const finalPrompt = appendIntentToPrompt(prompt, config.project.intent, config.project.context_notes);
+
       return {
         id: analyzer.id,
-        prompt,
+        prompt: finalPrompt,
         outputPath: path.join(analyzedPath, analyzer.produces[0] ?? `${analyzer.id}.md`),
       };
     });
