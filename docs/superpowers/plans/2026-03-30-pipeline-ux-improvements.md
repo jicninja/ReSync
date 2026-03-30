@@ -26,6 +26,7 @@ it('accepts optional intent field', () => {
   const config = configSchema.parse({
     project: { name: 'Test', intent: 'port to Fastify' },
     sources: { repo: { path: '.' } },
+    output: {},
   });
   expect(config.project.intent).toBe('port to Fastify');
 });
@@ -34,6 +35,7 @@ it('accepts optional context_notes field', () => {
   const config = configSchema.parse({
     project: { name: 'Test', context_notes: 'Focus on backend\nSkip UI' },
     sources: { repo: { path: '.' } },
+    output: {},
   });
   expect(config.project.context_notes).toBe('Focus on backend\nSkip UI');
 });
@@ -42,6 +44,7 @@ it('accepts config without intent or context_notes', () => {
   const config = configSchema.parse({
     project: { name: 'Test' },
     sources: { repo: { path: '.' } },
+    output: {},
   });
   expect(config.project.intent).toBeUndefined();
   expect(config.project.context_notes).toBeUndefined();
@@ -488,11 +491,24 @@ git commit -m "feat(intent): add low-priority heuristic for intent-based analyze
 
 ---
 
-### Task 6: Intent Suggest — Post-Ingest AI Questions
+### Task 6: Shared Pipeline Utility + Intent Suggest — Post-Ingest AI Questions
 
 **Files:**
+- Create: `src/pipeline/utils.ts`
 - Create: `src/pipeline/intent-suggest.ts`
 - Create: `tests/pipeline/intent-suggest.test.ts`
+
+Before creating intent-suggest, create the shared utility:
+
+```typescript
+// src/pipeline/utils.ts
+import * as fs from 'node:fs';
+
+export function readFileOrEmpty(filePath: string): string {
+  if (!fs.existsSync(filePath)) return '';
+  return fs.readFileSync(filePath, 'utf-8');
+}
+```
 
 - [ ] **Step 1: Write failing tests**
 
@@ -571,8 +587,8 @@ Expected: FAIL
 
 ```typescript
 // src/pipeline/intent-suggest.ts
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { readFileOrEmpty } from './utils.js';
 
 export interface IntentQuestion {
   id: string;
@@ -584,11 +600,6 @@ export interface IntentQuestion {
 export interface IntentSuggestResult {
   questions: IntentQuestion[];
   summary: string;
-}
-
-function readFileOrEmpty(filePath: string): string {
-  if (!fs.existsSync(filePath)) return '';
-  return fs.readFileSync(filePath, 'utf-8');
 }
 
 export function buildIntentSuggestPrompt(rawDir: string, intent: string): string | null {
@@ -741,17 +752,12 @@ Expected: FAIL
 
 ```typescript
 // src/pipeline/intent-refine.ts
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { readFileOrEmpty } from './utils.js';
 
 export interface IntentRefineResult {
   recommendations: string[];
   suggested_focus: string[];
-}
-
-function readFileOrEmpty(filePath: string): string {
-  if (!fs.existsSync(filePath)) return '';
-  return fs.readFileSync(filePath, 'utf-8');
 }
 
 export function buildIntentRefinePrompt(
@@ -1017,7 +1023,7 @@ const PROJECT_TYPES = [
 ] as const;
 
 export async function runQuickSetup(dir: string): Promise<void> {
-  const detected = await detectProject(dir);
+  const detected = detectProject(dir);
 
   clack.log.step(`Detected: ${detected.name}${detected.description ? ` (${detected.description})` : ''}`);
 
@@ -1155,7 +1161,12 @@ Expected: FAIL
 
 ```typescript
 // src/wizard/run-flow.ts
+import * as clack from '@clack/prompts';
 import type { WizardState } from './menu.js';
+import type { ReSpecConfig } from '../config/schema.js';
+import { runWithSpinner } from './runner.js';
+import { updateConfig } from '../config/loader.js';
+import { rawDir, analyzedDir } from '../utils/fs.js';
 
 export interface RunStep {
   id: string;
@@ -1175,6 +1186,14 @@ const ALL_RUN_STEPS: RunStep[] = [
 
 const PHASE_ORDER: WizardState[] = ['no-config', 'empty', 'ingested', 'analyzed', 'generated'];
 
+const PROJECT_TYPES = [
+  'full system specification',
+  'port / migration',
+  'refactor',
+  'version upgrade',
+  'audit / review',
+] as const;
+
 export function getRunSteps(state: WizardState, intent: string | undefined): RunStep[] {
   const stateIndex = PHASE_ORDER.indexOf(state);
 
@@ -1189,6 +1208,158 @@ export function getRunSteps(state: WizardState, intent: string | undefined): Run
   }
 
   return steps;
+}
+
+async function handleIntentType(dir: string): Promise<void> {
+  const projectType = await clack.select({
+    message: 'What type of project is this?',
+    options: [
+      ...PROJECT_TYPES.map((t) => ({ value: t, label: t })),
+      { value: 'custom', label: 'Custom (describe your own)' },
+    ],
+    initialValue: PROJECT_TYPES[0],
+  });
+  if (clack.isCancel(projectType)) return;
+
+  if (projectType !== 'full system specification') {
+    let intent: string;
+    if (projectType === 'custom') {
+      const custom = await clack.text({ message: 'Describe your goal:' });
+      if (clack.isCancel(custom)) return;
+      intent = custom as string;
+    } else {
+      intent = projectType as string;
+    }
+    await updateConfig(dir, { 'project.intent': intent });
+  }
+}
+
+async function handleIntentSuggest(
+  dir: string,
+  config: ReSpecConfig,
+  executeCommand: (command: string, dir: string) => Promise<void>,
+): Promise<void> {
+  const { buildIntentSuggestPrompt, parseIntentSuggestResponse } = await import('../pipeline/intent-suggest.js');
+  const raw = rawDir(dir);
+  const prompt = buildIntentSuggestPrompt(raw, config.project.intent ?? 'full system specification');
+  if (!prompt) return;
+
+  // Run lightweight AI call
+  const { createEngineChain } = await import('../ai/factory.js');
+  const { PHASE_ANALYZE } = await import('../constants.js');
+  const engines = createEngineChain(PHASE_ANALYZE, config.ai);
+  try {
+    const engine = engines[0];
+    const response = await engine.run({ id: 'intent-suggest', prompt, outputPath: '' });
+    if (response.status !== 'success' || !response.output) return;
+
+    const result = parseIntentSuggestResponse(response.output);
+    if (!result || result.questions.length === 0) return;
+
+    clack.log.step(result.summary);
+
+    // Render dynamic questions
+    const answers: string[] = [];
+    for (const q of result.questions) {
+      if (q.type === 'text') {
+        const answer = await clack.text({ message: q.text });
+        if (clack.isCancel(answer)) break;
+        answers.push(`${q.text}: ${answer}`);
+      } else if (q.type === 'select' && q.options) {
+        const answer = await clack.select({
+          message: q.text,
+          options: q.options.map((o) => ({ value: o, label: o })),
+        });
+        if (clack.isCancel(answer)) break;
+        answers.push(`${q.text}: ${answer}`);
+      } else if (q.type === 'multiselect' && q.options) {
+        const answer = await clack.multiselect({
+          message: q.text,
+          options: q.options.map((o) => ({ value: o, label: o })),
+        });
+        if (clack.isCancel(answer)) break;
+        answers.push(`${q.text}: ${(answer as string[]).join(', ')}`);
+      }
+    }
+
+    if (answers.length > 0) {
+      const existing = config.project.context_notes ?? '';
+      const notes = existing ? `${existing}\n${answers.join('\n')}` : answers.join('\n');
+      await updateConfig(dir, { 'project.context_notes': notes });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    clack.log.warn(`Intent suggestions unavailable: ${message}`);
+  }
+}
+
+async function handleIntentRefine(dir: string, config: ReSpecConfig): Promise<void> {
+  const { buildIntentRefinePrompt, parseIntentRefineResponse } = await import('../pipeline/intent-refine.js');
+  const analyzed = analyzedDir(dir);
+  const prompt = buildIntentRefinePrompt(analyzed, config.project.intent, config.project.context_notes);
+
+  const { createEngineChain } = await import('../ai/factory.js');
+  const { PHASE_ANALYZE } = await import('../constants.js');
+  const engines = createEngineChain(PHASE_ANALYZE, config.ai);
+  try {
+    const engine = engines[0];
+    const response = await engine.run({ id: 'intent-refine', prompt, outputPath: '' });
+    if (response.status !== 'success' || !response.output) return;
+
+    const result = parseIntentRefineResponse(response.output);
+    if (!result || result.recommendations.length === 0) return;
+
+    const recList = result.recommendations.map((r) => `  - ${r}`).join('\n');
+    clack.log.step(`Refined recommendations:\n${recList}`);
+
+    const adjustment = await clack.text({
+      message: 'Adjust goal or add constraints? (Enter to continue)',
+    });
+    if (clack.isCancel(adjustment)) return;
+    if (adjustment && (adjustment as string).trim()) {
+      const existing = config.project.context_notes ?? '';
+      const notes = existing ? `${existing}\n${adjustment}` : adjustment as string;
+      await updateConfig(dir, { 'project.context_notes': notes });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    clack.log.warn(`Intent refinement unavailable: ${message}`);
+  }
+}
+
+export async function runPipeline(
+  dir: string,
+  state: WizardState,
+  config: ReSpecConfig,
+  executeCommand: (command: string, dir: string) => Promise<void>,
+): Promise<void> {
+  const steps = getRunSteps(state, config.project.intent);
+  const pipelineSteps = steps.filter((s) => !s.interactive);
+  const total = pipelineSteps.length;
+  let pipelineIndex = 0;
+
+  for (const step of steps) {
+    // Interactive checkpoints
+    if (step.interactive) {
+      if (step.id === 'intent-type') {
+        await handleIntentType(dir);
+      } else if (step.id === 'intent-suggest') {
+        await handleIntentSuggest(dir, config, executeCommand);
+      } else if (step.id === 'intent-refine') {
+        await handleIntentRefine(dir, config);
+      }
+      continue;
+    }
+
+    // Pipeline steps
+    pipelineIndex++;
+    const label = `[${pipelineIndex}/${total}] ${step.id}`;
+    const result = await runWithSpinner(label, () => executeCommand(step.id, dir));
+    if (!result.ok) {
+      clack.log.error(`${step.id} failed: ${result.error}`);
+      break;
+    }
+  }
 }
 ```
 
@@ -1249,9 +1420,9 @@ In `src/wizard/index.ts`, modify the `runWizard` function. After the `if (action
     }
 ```
 
-Note: `runPipeline` is a new export from `run-flow.ts` that executes `getRunSteps` and iterates through them, calling `executeCommand` for pipeline steps and handling interactive steps (intent-type, intent-suggest, intent-refine) inline. This function needs to be added to `src/wizard/run-flow.ts` — implement it after the `getRunSteps` function with the same pattern as `runAutopilot` but with interactive checkpoint handling.
+Note: `runPipeline` is now fully implemented in Task 10's `run-flow.ts` code above. It handles interactive checkpoints (intent-type, intent-suggest, intent-refine) and pipeline steps with spinner.
 
-- [ ] **Step 3: Add `--intent` flag to CLI**
+- [ ] **Step 3: Add `--intent` and `--detailed` flags to CLI**
 
 In `bin/respec.ts`, add after the existing global options (line 35):
 
@@ -1260,7 +1431,54 @@ In `bin/respec.ts`, add after the existing global options (line 35):
   .option('--all', 'run all analyzers/generators regardless of intent priority')
 ```
 
-In the default action handler (line 139), pass intent to the wizard or auto-init flow.
+Add `--detailed` flag to the init command (around line 38):
+
+```typescript
+program
+  .command('init')
+  .option('--detailed', 'detailed init with Jira, Confluence, and advanced options')
+  .option('--repo <path>', 'repository path or URL')
+```
+
+In the init command action handler, check for `--detailed` and call `runInteractiveInit` (existing) vs quick init.
+
+In the default action handler (line 139), add `--intent` handling before the wizard:
+
+```typescript
+  // --intent: auto-init if no config, set intent, then run
+  if (opts.intent) {
+    const { existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { CONFIG_FILENAME } = await import('../src/constants.js');
+    const { updateConfig } = await import('../src/config/loader.js');
+
+    if (!existsSync(join(dir, CONFIG_FILENAME))) {
+      // Auto-init with defaults
+      await runInit(dir);
+    }
+    await updateConfig(dir, { 'project.intent': opts.intent });
+
+    // Run pipeline
+    const { loadConfig } = await import('../src/config/loader.js');
+    const config = await loadConfig(dir);
+    const { runPipeline } = await import('../src/wizard/run-flow.js');
+    const { StateManager } = await import('../src/state/manager.js');
+    const state = new StateManager(dir).load();
+    const stateMap = { empty: 'empty', ingested: 'ingested', analyzed: 'analyzed', generated: 'generated' } as const;
+
+    const executeCmd = async (cmd: string, d: string) => {
+      switch (cmd) {
+        case 'ingest': return runIngest(d, { ci: true, force: true });
+        case 'analyze': return runAnalyze(d, { ci: true, force: true });
+        case 'generate': return runGenerate(d, { ci: true, force: true });
+        case 'export': return runExport(d, {});
+      }
+    };
+
+    await runPipeline(dir, stateMap[state.phase] ?? 'empty', config, executeCmd);
+    return;
+  }
+```
 
 - [ ] **Step 4: Run full suite**
 
