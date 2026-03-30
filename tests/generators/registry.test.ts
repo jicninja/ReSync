@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { getGeneratorRegistry, getGeneratorsByTier } from '../../src/generators/registry.js';
 
 describe('getGeneratorRegistry', () => {
-  it('returns all 6 generators', () => {
+  it('returns all 7 generators', () => {
     const generators = getGeneratorRegistry();
-    expect(generators).toHaveLength(6);
+    expect(generators).toHaveLength(7);
   });
 
   it('each generator has required fields', () => {
@@ -42,12 +42,13 @@ describe('getGeneratorsByTier', () => {
     expect(tier2).toHaveLength(1);
   });
 
-  it('tier 3 has task-gen, format-gen', () => {
+  it('tier 3 has task-gen, format-gen, toolkit-gen', () => {
     const tier3 = getGeneratorsByTier(3);
     const ids = tier3.map((g) => g.id);
     expect(ids).toContain('task-gen');
     expect(ids).toContain('format-gen');
-    expect(tier3).toHaveLength(2);
+    expect(ids).toContain('toolkit-gen');
+    expect(tier3).toHaveLength(3);
   });
 
   it('returns empty array for non-existent tier', () => {

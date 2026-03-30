@@ -189,7 +189,7 @@ ReSpec generates specs in six formats. Set `output.format` in your config or use
 
 | Format | Target | What it creates |
 |--------|--------|-----------------|
-| **kiro** | AWS Kiro IDE | `.kiro/steering/` + `.kiro/specs/` with requirements/design/tasks triplets |
+| **kiro** | AWS Kiro IDE | `.kiro/steering/` + `.kiro/specs/` with requirements/design/tasks triplets (offers optional cc-sdd install) |
 | **openspec** | Any agent | `openspec/` with capability specs, RFC 2119 requirements, GIVEN/WHEN/THEN scenarios |
 | **antigravity** | Google Antigravity | `GEMINI.md` + `AGENTS.md` + `.agent/rules/` |
 | **superpowers** | Claude Code | `CLAUDE.md` + `skills/` with YAML frontmatter for discovery |
@@ -204,6 +204,8 @@ respec generate
 respec export --format kiro --output ./kiro-specs
 respec export --format superpowers --output ./claude-specs
 ```
+
+After export, ReSpec recommends MCP servers, skills, and plugins tailored to your detected stack. An interactive wizard offers to install them, or in CI mode, generates config files only.
 
 ## Configuration
 

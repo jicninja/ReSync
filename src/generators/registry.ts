@@ -42,6 +42,12 @@ const GENERATORS: GeneratorDef[] = [
     produces: ['api/contracts/'],
     tier: 3,
   },
+  {
+    id: 'toolkit-gen',
+    reads: ['domain/bounded-contexts.md', 'infra/architecture.md'],
+    produces: ['toolkit/recommendations.json'],
+    tier: 3,
+  },
 ];
 
 export function getGeneratorRegistry(): GeneratorDef[] {

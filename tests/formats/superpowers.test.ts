@@ -86,4 +86,41 @@ describe('SuperpowersFormat', () => {
     expect(content).toContain('System Design Document');
     expect(content).toContain('Content here.');
   });
+
+  it('includes toolkit recommendations in CLAUDE.md when provided', async () => {
+    const ctxWithRecs = {
+      ...context,
+      toolkitRecommendations: {
+        stack: { detected: ['nextjs'], format: 'superpowers', multiAgent: false },
+        recommendations: [
+          {
+            type: 'mcp' as const,
+            name: 'test-mcp',
+            package: '@test/mcp-server',
+            description: 'Test MCP server',
+            reason: 'Next.js detected',
+            install: { method: 'mcp-config' as const, config: { command: 'npx', args: ['@test/mcp-server'] } },
+            validated: true,
+            agents: ['claude' as const],
+            category: 'testing',
+          },
+        ],
+        workflowGuidance: {
+          complexity: 'medium' as const,
+          suggestedWorkflow: 'spec-driven',
+          reason: 'test',
+        },
+      },
+    };
+    await adapter.package('', outputDir, ctxWithRecs);
+    const content = fs.readFileSync(join(outputDir, 'CLAUDE.md'), 'utf-8');
+    expect(content).toContain('Recommended MCPs');
+    expect(content).toContain('@test/mcp-server');
+  });
+
+  it('omits toolkit section in CLAUDE.md when no recommendations', async () => {
+    await adapter.package('', outputDir, context);
+    const content = fs.readFileSync(join(outputDir, 'CLAUDE.md'), 'utf-8');
+    expect(content).not.toContain('Recommended MCPs');
+  });
 });

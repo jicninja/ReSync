@@ -1,3 +1,4 @@
+import type { ToolkitRecommendations } from '../toolkit/types.js';
 import type { ReSpecConfig } from '../config/schema.js';
 
 export interface FormatAdapter {
@@ -13,4 +14,5 @@ export interface FormatContext {
   generatedDir: string;
   config: ReSpecConfig;
   ciMode: boolean;
+  toolkitRecommendations?: ToolkitRecommendations;
 }

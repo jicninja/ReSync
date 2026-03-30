@@ -5,7 +5,7 @@ import { StateManager } from '../state/manager.js';
 import { createEngineChain } from '../ai/factory.js';
 import { Orchestrator } from '../ai/orchestrator.js';
 import { getGeneratorsByTier, getGeneratorRegistry } from '../generators/registry.js';
-import { analyzedDir, generatedDir, writeMarkdown } from '../utils/fs.js';
+import { analyzedDir, generatedDir, rawDir, writeMarkdown } from '../utils/fs.js';
 import { PHASE_ANALYZED, PHASE_GENERATE, RESPEC_DIR } from '../constants.js';
 import { takeSnapshot } from '../diff/snapshot.js';
 import { createTUI } from '../tui/factory.js';
@@ -16,6 +16,9 @@ import { buildADRPrompt } from '../generators/adr-gen.js';
 import { buildSDDPrompt } from '../generators/sdd-gen.js';
 import { buildTaskPrompt } from '../generators/task-gen.js';
 import { buildFormatPrompt } from '../generators/format-gen.js';
+import { buildToolkitPrompt } from '../generators/toolkit-gen.js';
+import { extractJSON } from '../toolkit/json-parser.js';
+import { validatePackages, isNpmAvailable } from '../toolkit/validator.js';
 import type { SubagentTask } from '../ai/types.js';
 import type { GeneratorContext } from '../generators/types.js';
 
@@ -34,6 +37,7 @@ const PROMPT_BUILDERS: Record<string, (ctx: GeneratorContext) => string> = {
   'sdd-gen': buildSDDPrompt,
   'task-gen': buildTaskPrompt,
   'format-gen': buildFormatPrompt,
+  'toolkit-gen': buildToolkitPrompt,
 };
 
 export async function runGenerate(
@@ -67,6 +71,7 @@ export async function runGenerate(
     generatedDir: outputDir,
     projectName: config.project.name,
     format,
+    rawDir: rawDir(dir),
   };
 
   const allGenerators = getGeneratorRegistry();
@@ -127,8 +132,26 @@ export async function runGenerate(
 
       if (result.status === 'success' && result.output) {
         const outputFile = path.join(outputDir, resolveProducePath(generator.produces[0], generator.id));
-        writeMarkdown(outputFile, result.output);
-        tui.success(`${result.id} — done (${result.durationMs}ms)`);
+
+        // toolkit-gen needs JSON parsing and npm validation
+        if (result.id === 'toolkit-gen') {
+          const parsed = extractJSON(result.output);
+          if (parsed) {
+            if (isNpmAvailable()) {
+              parsed.recommendations = await validatePackages(parsed.recommendations);
+            } else {
+              for (const rec of parsed.recommendations) rec.validated = null;
+            }
+            writeMarkdown(outputFile, JSON.stringify(parsed, null, 2));
+            tui.success(`${result.id} — done (${result.durationMs}ms, ${parsed.recommendations.length} recommendations)`);
+          } else {
+            tui.warn(`${result.id}: failed to parse AI response as JSON`);
+            writeMarkdown(outputFile, JSON.stringify({ stack: { detected: [], format, multiAgent: false }, recommendations: [], workflowGuidance: { complexity: 'simple', suggestedWorkflow: 'unknown', reason: 'AI response could not be parsed' } }, null, 2));
+          }
+        } else {
+          writeMarkdown(outputFile, result.output);
+          tui.success(`${result.id} — done (${result.durationMs}ms)`);
+        }
       } else {
         tui.warn(`${result.id}: ${result.status}`, result.error ?? 'unknown error');
       }

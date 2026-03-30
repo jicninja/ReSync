@@ -10,4 +10,5 @@ export interface GeneratorContext {
   generatedDir: string;
   projectName: string;
   format: string;
+  rawDir?: string;
 }

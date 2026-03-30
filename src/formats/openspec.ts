@@ -2,6 +2,24 @@ import * as path from 'node:path';
 import { ensureDir, writeMarkdown } from '../utils/fs.js';
 import type { FormatAdapter, FormatContext } from './types.js';
 
+function buildToolkitSection(recs: FormatContext['toolkitRecommendations']): string {
+  if (!recs || recs.recommendations.length === 0) return '';
+
+  const mcps = recs.recommendations.filter((r) => r.type === 'mcp');
+  const other = recs.recommendations.filter((r) => r.type !== 'mcp');
+
+  let section = '\n\n## Recommended MCP Servers\n\n';
+  if (mcps.length > 0) {
+    section += mcps.map((r) => `- **${r.package}** — ${r.description} (agents: ${r.agents.join(', ')})`).join('\n');
+  }
+  if (other.length > 0) {
+    section += '\n\n## Other Recommended Tools\n\n';
+    section += other.map((r) => `- **${r.name}** — ${r.description}`).join('\n');
+  }
+
+  return section;
+}
+
 export class OpenSpecFormat implements FormatAdapter {
   name = 'openspec';
 
@@ -9,9 +27,10 @@ export class OpenSpecFormat implements FormatAdapter {
     const { projectName, projectDescription, sddContent } = context;
 
     // openspec/AGENTS.md
+    const toolkitSection = buildToolkitSection(context.toolkitRecommendations);
     writeMarkdown(
       path.join(outputDir, 'openspec', 'AGENTS.md'),
-      `# OpenSpec Agents\n\n<openspec-instructions>\nThis project uses the OpenSpec specification format.\nAll implementation must follow the specs defined in openspec/specs/.\nChanges are tracked in openspec/changes/.\nExplorations are documented in openspec/explorations/.\n</openspec-instructions>\n`
+      `# OpenSpec Agents\n\n<openspec-instructions>\nThis project uses the OpenSpec specification format.\nAll implementation must follow the specs defined in openspec/specs/.\nChanges are tracked in openspec/changes/.\nExplorations are documented in openspec/explorations/.${toolkitSection}\n</openspec-instructions>\n`
     );
 
     // openspec/project.md

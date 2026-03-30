@@ -187,7 +187,7 @@
 
   ### Phase 3: `/.respec/generated/`
 
-  Raw generated specs (SDD, ERDs, flows, ADRs, tasks). Format-independent. `respec export` reads from here and writes format-specific output to the project root.
+  Raw generated specs (SDD, ERDs, flows, ADRs, tasks) plus `toolkit/recommendations.json` (AI toolkit recommendations). Format-independent. `respec export` reads from here and writes format-specific output to the project root.
 
   ## Analyzers
 
@@ -200,17 +200,17 @@
 
   ## Generators
 
-  6 generators in 3 tiers:
+  7 generators in 3 tiers:
 
   **Tier 1** (parallel): erd-gen, flow-gen, adr-gen
   **Tier 2** (sequential): sdd-gen
-  **Tier 3** (parallel): task-gen, format-gen
+  **Tier 3** (parallel): task-gen, format-gen, toolkit-gen
 
   ## Output Formats
 
   | Format | Target | Structure |
   |--------|--------|-----------|
-  | `kiro` | AWS Kiro IDE | `.kiro/steering/` + `.kiro/specs/` |
+  | `kiro` | AWS Kiro IDE | `.kiro/steering/` + `.kiro/specs/` (offers optional cc-sdd install) |
   | `openspec` | Any agent | `openspec/specs/` + `openspec/changes/` |
   | `antigravity` | Google Antigravity | `GEMINI.md` + `.agent/rules/` |
   | `superpowers` | Claude Code | `CLAUDE.md` + `skills/` |
@@ -273,6 +273,21 @@
 
   Uses Jira credentials from `sources.jira` in config. Wizard mode prompts interactively for project key, prefix, and creation mode.
 
+  ## AI Toolkit Recommendations
+
+  `toolkit-gen` is a tier 3 generator that recommends MCP servers, skills, plugins, and IDE extensions based on the detected stack. Code lives in `src/generators/toolkit-gen.ts` and `src/toolkit/`:
+
+  - `types.ts` — `ToolkitRecommendations`, `Recommendation`, `AgentId`, install method types
+  - `json-parser.ts` — `extractJSON(text)` extracts JSON from AI responses (handles code-fence wrapping)
+  - `validator.ts` — `validatePackages(recs)` runs `npm view` per package (5s timeout, 10 concurrent), marks `validated: true|false|null`
+  - `wizard.ts` — `runToolkitWizard(recs, options)` post-export interactive installer; `readRecommendations(dir)` loads recommendations.json
+
+  **Pipeline flow**: toolkit-gen runs in tier 3 of `respec generate`. The generate command post-processes its output: extracts JSON from the AI response, validates packages via npm, and writes `.respec/generated/toolkit/recommendations.json`. During `respec export`, recommendations are read and passed to format adapters via `FormatContext.toolkitRecommendations`. After export, a post-export wizard offers interactive installation.
+
+  **Format adapter integration**: superpowers format injects a "Recommended MCPs" / "Recommended Skills" section into `CLAUDE.md`. OpenSpec format injects recommendations into `AGENTS.md`. Other formats receive the field but do not process it (v2).
+
+  **GeneratorContext.rawDir**: toolkit-gen is the only generator that reads from the raw phase. An optional `rawDir` field on `GeneratorContext` provides access to `raw/repo/dependencies.md`. This is a known deviation from the standard generator contract where `reads` only declares analyzed-phase paths.
+
   ## TUI (Terminal UI)
 
   Individual commands use an interactive TUI with 3 modes:
@@ -331,7 +346,7 @@
 
   ## Conventions
 
-  - All output files are Markdown or Mermaid
+  - All output files are Markdown or Mermaid (except `toolkit/recommendations.json`)
   - Diagrams use Mermaid syntax exclusively
   - File names use kebab-case
   - One concept per file (no mega-documents except sdd.md)

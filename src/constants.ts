@@ -96,3 +96,8 @@ export const ANALYZED_KEY_FILES = [
   'infra/architecture.md',
   '_analysis-report.md',
 ];
+
+// ── Toolkit ────────────────────────────────────────────────────────
+export const TOOLKIT_VALIDATE_TIMEOUT = 5000;
+export const TOOLKIT_VALIDATE_CONCURRENCY = 10;
+export const TOOLKIT_RECOMMENDATIONS_FILE = 'toolkit/recommendations.json';
