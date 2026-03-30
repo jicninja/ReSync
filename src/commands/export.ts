@@ -19,7 +19,7 @@ export async function runExport(
   const inputDir = specsDir(dir, config.output.dir);
   const outputDir = options.output
     ? path.resolve(dir, options.output)
-    : inputDir;
+    : dir;
 
   // Read SDD content if it exists
   const sddPath = path.join(inputDir, 'sdd.md');
