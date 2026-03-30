@@ -16,6 +16,8 @@ const projectSchema = z.object({
   name: z.string(),
   version: z.string().optional(),
   description: z.string().optional(),
+  intent: z.string().optional(),
+  context_notes: z.string().optional(),
 });
 
 const repoSourceSchema = z.object({

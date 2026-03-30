@@ -224,6 +224,34 @@ describe('configSchema', () => {
     expect(result.data.ai.engines.claude).toBeDefined();
   });
 
+  it('accepts optional intent field', () => {
+    const config = configSchema.parse({
+      project: { name: 'Test', intent: 'port to Fastify' },
+      sources: { repo: { path: '.' } },
+      output: {},
+    });
+    expect(config.project.intent).toBe('port to Fastify');
+  });
+
+  it('accepts optional context_notes field', () => {
+    const config = configSchema.parse({
+      project: { name: 'Test', context_notes: 'Focus on backend\nSkip UI' },
+      sources: { repo: { path: '.' } },
+      output: {},
+    });
+    expect(config.project.context_notes).toBe('Focus on backend\nSkip UI');
+  });
+
+  it('accepts config without intent or context_notes', () => {
+    const config = configSchema.parse({
+      project: { name: 'Test' },
+      sources: { repo: { path: '.' } },
+      output: {},
+    });
+    expect(config.project.intent).toBeUndefined();
+    expect(config.project.context_notes).toBeUndefined();
+  });
+
   describe('speckit mapping in output schema', () => {
     it('accepts output.speckit with mapping array', () => {
       const config = {
