@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { loadConfig } from '../config/loader.js';
 import { createFormatAdapter } from '../formats/factory.js';
-import { analyzedDir, specsDir } from '../utils/fs.js';
+import { analyzedDir, generatedDir } from '../utils/fs.js';
 import { createTUI } from '../tui/factory.js';
 
 export async function runExport(
@@ -16,7 +16,7 @@ export async function runExport(
   const adapter = createFormatAdapter(format);
 
   const analyzedPath = analyzedDir(dir);
-  const inputDir = specsDir(dir, config.output.dir);
+  const inputDir = generatedDir(dir, config.output.dir);
   const outputDir = options.output
     ? path.resolve(dir, options.output)
     : dir;

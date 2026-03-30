@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { RESPEC_DIR } from '../constants.js';
 import { getLatestSnapshot } from '../diff/snapshot.js';
 import { compareDirectories } from '../diff/compare.js';
-import { analyzedDir, specsDir } from '../utils/fs.js';
+import { analyzedDir, generatedDir } from '../utils/fs.js';
 import { loadConfig } from '../config/loader.js';
 
 export async function runDiff(
@@ -24,7 +24,7 @@ export async function runDiff(
       currentDir = analyzedDir(dir);
     } else {
       const config = await loadConfig(dir);
-      currentDir = specsDir(dir, config.output.dir);
+      currentDir = generatedDir(dir, config.output.dir);
     }
 
     const result = compareDirectories(snapshot, currentDir);

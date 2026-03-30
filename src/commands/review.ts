@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { loadConfig } from '../config/loader.js';
 import { createEngineChain } from '../ai/factory.js';
 import { Orchestrator } from '../ai/orchestrator.js';
-import { rawDir, analyzedDir, specsDir, writeMarkdown } from '../utils/fs.js';
+import { rawDir, analyzedDir, generatedDir, writeMarkdown } from '../utils/fs.js';
 import { RESPEC_DIR } from '../constants.js';
 import { loadPromptTemplate } from '../prompts/loader.js';
 import { createTUI } from '../tui/factory.js';
@@ -36,7 +36,7 @@ export async function runReview(
   tui.phaseHeader('REVIEW', 'Validating specs against raw data');
 
   // Read all sources
-  const specsPath = specsDir(dir, config.output.dir);
+  const specsPath = generatedDir(dir, config.output.dir);
   const sddPath = path.join(specsPath, 'sdd.md');
   const sddContent = fs.existsSync(sddPath)
     ? fs.readFileSync(sddPath, 'utf-8')
