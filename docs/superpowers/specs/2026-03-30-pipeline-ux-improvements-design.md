@@ -29,6 +29,15 @@ Both fields are optional. When omitted, the pipeline runs as it does today with 
 - **`respec init`**: asks "What's the goal? (optional)" after name/description
 - **`respec init --detailed`**: brainstorming-style interview (see Detailed Init section)
 - **`--intent "..."` CLI flag**: sets intent without prompting, skips Pass 1
+- **Individual commands** (`respec analyze`, `respec generate`, etc.): read `project.intent` and `project.context_notes` from config if present. Intent injection works the same regardless of whether the command was triggered from Run or individually.
+
+### Intent Injection Mechanism
+
+Add `intent?: string` and `contextNotes?: string` to `GeneratorContext` in `src/generators/types.ts`. In `src/commands/generate.ts`, populate them from `config.project.intent` and `config.project.context_notes` when constructing `generatorCtx`.
+
+For analyzers: the orchestrator in `src/commands/analyze.ts` appends intent sections to prompts after the prompt builder returns them. If `config.project.intent` exists, append `\n\n## Project Intent\n\n{intent}`. If `config.project.context_notes` exists, append `\n\n## Additional Context\n\n{context_notes}`.
+
+For generators: each prompt builder receives intent via `ctx.intent` and `ctx.contextNotes` and includes them in its prompt template. This follows the same pattern as `ctx.rawDir` — optional fields that prompt builders check and include if present.
 
 ### How Intent Is Used
 
@@ -48,7 +57,12 @@ A small module `src/pipeline/intent.ts` marks analyzers/generators as low-priori
 | "port", "migrate" | (none — ports need full analysis) | (none) |
 | "audit", "review" | (none) | task-gen, format-gen |
 
-In autopilot/Run mode, low-priority items are skipped. In manual mode (individual commands), everything runs. The mapping is a simple heuristic — if the intent doesn't match any keyword, everything runs at normal priority.
+In autopilot/Run mode, low-priority items are skipped. In manual mode (individual commands), everything runs at normal priority. The mapping is a simple heuristic — if the intent doesn't match any keyword, everything runs.
+
+**Visibility and override:**
+- When a low-priority analyzer/generator is skipped, the TUI displays: `⊘ flow-gen — skipped (low priority for "upgrade" intent)`
+- `--all` flag forces all analyzers/generators to run regardless of intent heuristic
+- **Tier dependency safety**: if a skipped generator produces files that a downstream tier reads, the skip is overridden. For example, if `flow-gen` (tier 1) is low-priority but `sdd-gen` (tier 2) reads `flows/`, `flow-gen` is promoted back to normal priority. The intent module checks `reads` declarations in the registry to detect these dependencies.
 
 ## Two-Pass Intent System
 
@@ -80,6 +94,8 @@ Suggested goals:
 
 User selection saves to `project.intent` in config. The analyze phase receives this as context.
 
+**Error handling**: Pass 1 is best-effort. If the AI call fails (network error, timeout, unparseable response), log a warning and continue without an intent. The pipeline is not blocked — intent is optional.
+
 ### Pass 2: Post-Analyze Refinement
 
 After analyze completes, another AI call reads the analysis report (`_analysis-report.md`, bounded contexts, architecture) combined with the current intent.
@@ -105,6 +121,18 @@ Refined recommendations:
 
 User adjustments append to `project.context_notes` in config. The generate phase receives both `intent` + `context_notes`.
 
+**Error handling**: Same as Pass 1 — best-effort. On failure, log warning and continue with existing intent/context_notes.
+
+### Config Writing
+
+Pass 1 and Pass 2 write back to `respec.config.yaml`. This requires a new `updateConfig(dir, updates)` function in `src/config/loader.ts` that:
+1. Reads the existing YAML file as a string
+2. Parses it with the `yaml` library (which preserves comments when using `parseDocument`)
+3. Sets/updates only the specified fields
+4. Writes back
+
+This avoids rewriting the entire config from scratch and preserves user comments and formatting.
+
 ### Behavior by Mode
 
 | Mode | Pass 1 (post-ingest) | Pass 2 (post-analyze) |
@@ -116,15 +144,35 @@ User adjustments append to `project.context_notes` in config. The generate phase
 
 ## Unified Run Flow
 
+### Wizard Action Types
+
+Extend `WizardAction` type in `src/wizard/menu.ts`:
+
+```typescript
+export type WizardAction =
+  | 'init' | 'init-detailed' | 'quick-setup'
+  | 'run' | 'continue'
+  | 'ingest' | 'analyze' | 'generate' | 'export'
+  | 'autopilot' | 'reset' | 'status' | 'validate' | 'review' | 'diff' | 'push-jira' | 'exit';
+```
+
+Add corresponding cases in `executeCommand` switch in `src/wizard/index.ts`:
+- `'quick-setup'`: runs auto-detect → format prompt → persist config → falls through to `'run'`
+- `'run'`: runs `ingest → [Pass 1] → analyze → [Pass 2] → generate → export → [toolkit wizard]`
+- `'continue'`: same as `run` but starts from current pipeline state
+- `'init-detailed'`: runs `respec init` with `--detailed` flag
+
 ### Wizard Menu Changes
 
 | State | Primary action | Menu |
 |-------|---------------|------|
-| no-config | Quick-setup then Run | [quick-setup, init, init --detailed, exit] |
-| empty | Run | [Run, ingest, status, exit] |
-| ingested | Continue | [Continue, analyze, status, exit] |
-| analyzed | Continue | [Continue, generate, diff, status, exit] |
+| no-config | Quick-setup then Run | [quick-setup, init, init-detailed, exit] |
+| empty | Run | [run, ingest, status, exit] |
+| ingested | Continue | [continue, analyze, status, exit] |
+| analyzed | Continue | [continue, generate, diff, status, exit] |
 | generated | Export | [export, review, push-jira, diff, validate, reset, status, exit] |
+
+Note: `autopilot` is removed from wizard menus. `run` replaces it — semantically, `run` is autopilot plus the two-pass intent checkpoints. The `--autopilot` CLI flag remains unchanged and runs the pipeline with zero interaction (no checkpoints, no prompts).
 
 ### Quick-Setup (no-config state, wizard mode)
 
@@ -142,6 +190,22 @@ Run chains: `ingest → [Pass 1] → analyze → [Pass 2] → generate → expor
 
 Continue picks up from the current state with the same checkpoints.
 
+The Run/Continue flow has its own step-resolution logic (not reusing `getAutopilotSteps`). It defines an ordered list of steps including the two-pass checkpoints:
+
+```typescript
+const RUN_STEPS = [
+  { id: 'ingest', phase: 'empty' },
+  { id: 'intent-suggest', phase: 'ingested', interactive: true },
+  { id: 'analyze', phase: 'ingested' },
+  { id: 'intent-refine', phase: 'analyzed', interactive: true },
+  { id: 'generate', phase: 'analyzed' },
+  { id: 'export', phase: 'generated' },
+  { id: 'toolkit', phase: 'generated', interactive: true },
+];
+```
+
+Steps marked `interactive: true` are skipped in autopilot/CI mode. The flow starts from the first step whose `phase` matches the current state.
+
 Both support:
 - Pause with `P` at any batch boundary
 - Low-priority skipping based on intent heuristic
@@ -154,6 +218,7 @@ respec                    # wizard → quick-setup if needed → Run
 respec --autopilot        # zero questions, zero pauses, defaults for everything
 respec --format kiro      # auto-init with format → Run
 respec --intent "..."     # auto-init with intent (skip Pass 1) → Run
+respec --all              # force all analyzers/generators (ignore low-priority)
 respec init               # interactive quick init
 respec init --detailed    # brainstorming-style init
 respec ingest/analyze/... # individual steps (power user, unchanged)
@@ -187,7 +252,7 @@ respec ingest/analyze/... # individual steps (power user, unchanged)
    > UI/frontend — we're only porting the backend
 ```
 
-Questions 1 saves to `project.intent`. Questions 2-5 are combined into `project.context_notes`. The focus/skip answers also feed the low-priority heuristic.
+Question 1 saves to `project.intent`. Questions 2-5 are combined into `project.context_notes`. The focus/skip answers also feed the low-priority heuristic.
 
 After the interview, the standard init questions follow (Jira, Confluence, context repos, AI engine, format).
 
@@ -225,18 +290,20 @@ output:
 
 ### Included
 
-- `project.intent` optional field in config schema (Zod validation)
-- `project.context_notes` optional freeform field in config schema
-- `intent-suggest.ts`: post-ingest AI call producing suggested intents
-- `intent-refine.ts`: post-analyze AI call producing recommendations
-- `intent.ts`: low-priority heuristic (keyword matching on intent string)
+- `project.intent` and `project.context_notes` optional fields in config schema (Zod validation)
+- `intent` and `contextNotes` fields on `GeneratorContext` for prompt injection
+- Intent section appended to analyzer prompts via orchestrator
+- `intent-suggest.ts`: post-ingest AI call producing suggested intents (best-effort)
+- `intent-refine.ts`: post-analyze AI call producing recommendations (best-effort)
+- `intent.ts`: low-priority heuristic with tier dependency safety and `--all` override
+- `updateConfig()` function for writing back intent/context_notes to YAML (comment-preserving)
+- New `WizardAction` values: `run`, `continue`, `quick-setup`, `init-detailed`
 - Quick-setup flow in wizard (auto-detect → format → persist → Run)
-- Run / Continue menu options chaining pipeline steps
-- Two-pass intent checkpoints in wizard/Run mode (skipped in autopilot/CI)
-- Intent + context_notes injection into all analyzer and generator prompts
-- `--intent` CLI flag on `respec` command
+- Run / Continue with own step-resolution logic including interactive checkpoints
+- Two-pass intent checkpoints (skipped in autopilot/CI)
+- `--intent` and `--all` CLI flags
 - `respec init --detailed` brainstorming-style init
-- Config auto-update after Pass 1 and Pass 2
+- Skip visibility in TUI (`⊘ skipped` messages)
 
 ### v2 (future)
 
@@ -248,7 +315,6 @@ output:
 
 ### Out of scope
 
-- Changing existing CLI commands or their flags
 - Breaking changes to config (new fields are optional)
 - Modifying analyzer/generator registry structure
 - Changing the TUI mode system
