@@ -93,4 +93,40 @@ describe('OpenSpecFormat', () => {
     expect(fs.existsSync(dirPath)).toBe(true);
     expect(fs.statSync(dirPath).isDirectory()).toBe(true);
   });
+
+  it('includes toolkit recommendations in AGENTS.md when provided', async () => {
+    const ctxWithRecs = {
+      ...context,
+      toolkitRecommendations: {
+        stack: { detected: ['nextjs'], format: 'openspec', multiAgent: true },
+        recommendations: [
+          {
+            type: 'mcp' as const,
+            name: 'test-mcp',
+            package: '@test/mcp-server',
+            description: 'Test MCP server',
+            reason: 'Next.js detected',
+            install: { method: 'mcp-config' as const, config: { command: 'npx', args: ['@test/mcp-server'] } },
+            validated: true,
+            agents: ['claude' as const, 'gemini' as const],
+            category: 'testing',
+          },
+        ],
+        workflowGuidance: {
+          complexity: 'medium' as const,
+          suggestedWorkflow: 'spec-driven',
+          reason: 'test',
+        },
+      },
+    };
+    await adapter.package('', outputDir, ctxWithRecs);
+    const content = fs.readFileSync(join(outputDir, 'openspec', 'AGENTS.md'), 'utf-8');
+    expect(content).toContain('@test/mcp-server');
+  });
+
+  it('omits toolkit section in AGENTS.md when no recommendations', async () => {
+    await adapter.package('', outputDir, context);
+    const content = fs.readFileSync(join(outputDir, 'openspec', 'AGENTS.md'), 'utf-8');
+    expect(content).not.toContain('Recommended MCP Servers');
+  });
 });
