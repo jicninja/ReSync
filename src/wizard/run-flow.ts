@@ -81,10 +81,10 @@ async function handleIntentSuggest(dir: string, config: ReSpecConfig): Promise<v
   const engines = createEngineChain(PHASE_ANALYZE, config.ai);
   try {
     const engine = engines[0];
-    const response = await engine.run({ id: 'intent-suggest', prompt, outputPath: '' });
-    if (response.status !== 'success' || !response.output) return;
+    const output = await engine.run(prompt);
+    if (!output) return;
 
-    const result = parseIntentSuggestResponse(response.output);
+    const result = parseIntentSuggestResponse(output);
     if (!result || result.questions.length === 0) return;
 
     clack.log.step(result.summary);
@@ -133,10 +133,10 @@ async function handleIntentRefine(dir: string, config: ReSpecConfig): Promise<vo
   const engines = createEngineChain(PHASE_ANALYZE, config.ai);
   try {
     const engine = engines[0];
-    const response = await engine.run({ id: 'intent-refine', prompt, outputPath: '' });
-    if (response.status !== 'success' || !response.output) return;
+    const output = await engine.run(prompt);
+    if (!output) return;
 
-    const result = parseIntentRefineResponse(response.output);
+    const result = parseIntentRefineResponse(output);
     if (!result || result.recommendations.length === 0) return;
 
     const recList = result.recommendations.map((r) => `  - ${r}`).join('\n');
