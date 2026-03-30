@@ -7,6 +7,9 @@ import { runGenerate } from '../src/commands/generate.js';
 import { runExport } from '../src/commands/export.js';
 import { runStatus } from '../src/commands/status.js';
 import { runValidate } from '../src/commands/validate.js';
+import { runReview } from '../src/commands/review.js';
+import { runDiff } from '../src/commands/diff.js';
+import { runPushJira } from '../src/commands/push.js';
 
 function wrapAction(fn: (...args: any[]) => Promise<void>) {
   return async (...args: any[]) => {
@@ -94,6 +97,42 @@ program
   .option('--phase <phase>', 'Validate a specific phase (raw, analyzed, specs)')
   .action(wrapAction(async (options: { phase?: string }) => {
     await runValidate(process.cwd(), options);
+  }));
+
+program
+  .command('review')
+  .description('AI review of specs against raw data — detect hallucinations')
+  .option('--verbose', 'Show full review report in terminal')
+  .action(wrapAction(async (cmdOpts: { verbose?: boolean }) => {
+    const globalOpts = program.opts();
+    await runReview(process.cwd(), { ...globalOpts, ...cmdOpts });
+  }));
+
+program
+  .command('diff')
+  .description('Show changes since last analyze/generate run')
+  .option('--phase <phase>', 'Only diff a specific phase (analyzed, specs)')
+  .action(wrapAction(async (cmdOpts: { phase?: string }) => {
+    const globalOpts = program.opts();
+    await runDiff(process.cwd(), { ...globalOpts, ...cmdOpts });
+  }));
+
+program
+  .command('push <target>')
+  .description('Push generated tasks to external services (jira)')
+  .option('--project <key>', 'Target Jira project key')
+  .option('--prefix <prefix>', 'Issue title prefix (default: [ReSpec])')
+  .option('--epics-only', 'Only create epics, skip stories')
+  .option('--dry-run', 'Preview without creating issues')
+  .action(wrapAction(async (target: string, cmdOpts: {
+    project?: string; prefix?: string; epicsOnly?: boolean; dryRun?: boolean;
+  }) => {
+    if (target === 'jira') {
+      const globalOpts = program.opts();
+      await runPushJira(process.cwd(), { ...globalOpts, ...cmdOpts });
+    } else {
+      throw new Error(`Unknown push target: "${target}". Available: jira`);
+    }
   }));
 
 // Default action: no subcommand → wizard or autopilot

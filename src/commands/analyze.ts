@@ -7,11 +7,13 @@ import { Orchestrator } from '../ai/orchestrator.js';
 import { getAnalyzersByTier, getAnalyzerRegistry } from '../analyzers/registry.js';
 import { buildAnalysisReport } from '../analyzers/report.js';
 import { rawDir, analyzedDir, writeMarkdown } from '../utils/fs.js';
+import { takeSnapshot } from '../diff/snapshot.js';
 import type { AnalyzerReport } from '../analyzers/types.js';
 import type { SubagentTask } from '../ai/types.js';
-import { PHASE_INGESTED, PHASE_ANALYZE } from '../constants.js';
+import { PHASE_INGESTED, PHASE_ANALYZE, RESPEC_DIR } from '../constants.js';
 import { parseConfidence, confidenceToFloat } from '../analyzers/confidence-parser.js';
 import { createTUI } from '../tui/factory.js';
+import { loadPromptTemplate } from '../prompts/loader.js';
 
 export async function runAnalyze(
   dir: string,
@@ -49,6 +51,10 @@ export async function runAnalyze(
 
   const allReports: AnalyzerReport[] = [];
   const analyzersRun: string[] = [];
+
+  // Snapshot current analyzed state before running
+  const snapshotsDir = path.join(dir, RESPEC_DIR, 'snapshots');
+  takeSnapshot(analyzedPath, snapshotsDir, 'analyzed');
 
   const maxTier = Math.max(...allAnalyzers.map((a) => a.tier));
 
@@ -97,15 +103,7 @@ export async function runAnalyze(
       const context = contextParts.join('\n\n---\n\n') || '(No raw data found for this analyzer)';
 
       // Load prompt template
-      let promptTemplate = `Analyze the following raw data and produce structured analysis output.\n\n{{CONTEXT}}`;
-      const promptFilePath = path.join(dir, 'prompts', path.basename(analyzer.promptFile));
-      if (fs.existsSync(promptFilePath)) {
-        try {
-          promptTemplate = fs.readFileSync(promptFilePath, 'utf-8');
-        } catch {
-          // fall back to default template
-        }
-      }
+      const promptTemplate = loadPromptTemplate(analyzer.id, dir);
 
       // Build context sources section
       let contextSourcesSection = '';

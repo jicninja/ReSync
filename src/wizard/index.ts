@@ -47,6 +47,55 @@ async function executeCommand(command: string, dir: string): Promise<void> {
       await runValidate(dir, {});
       break;
     }
+    case 'review': {
+      const { runReview } = await import('../commands/review.js');
+      await runReview(dir, { ci: true });
+      break;
+    }
+    case 'diff': {
+      const { runDiff } = await import('../commands/diff.js');
+      await runDiff(dir, { ci: true });
+      break;
+    }
+    case 'push-jira': {
+      const clack = await import('@clack/prompts');
+      const { loadConfig } = await import('../config/loader.js');
+
+      const config = await loadConfig(dir);
+      if (!config.sources.jira) {
+        clack.log.error('Jira not configured in respec.config.yaml');
+        break;
+      }
+
+      const project = await clack.text({
+        message: 'Jira project key?',
+        initialValue: config.sources.jira.filters?.projects?.[0] ?? '',
+      });
+      if (clack.isCancel(project)) break;
+
+      const prefix = await clack.text({
+        message: 'Issue prefix?',
+        initialValue: '[ReSpec]',
+      });
+      if (clack.isCancel(prefix)) break;
+
+      const mode = await clack.select({
+        message: 'What to create?',
+        options: [
+          { value: 'all', label: 'Epics + Stories' },
+          { value: 'epics', label: 'Epics only' },
+        ],
+      });
+      if (clack.isCancel(mode)) break;
+
+      const { runPushJira } = await import('../commands/push.js');
+      await runPushJira(dir, {
+        project: project as string,
+        prefix: prefix as string,
+        epicsOnly: mode === 'epics',
+      });
+      break;
+    }
   }
 }
 
@@ -124,7 +173,7 @@ export async function runWizard(dir: string): Promise<void> {
       continue;
     }
 
-    if (action === 'status' || action === 'validate') {
+    if (action === 'status' || action === 'validate' || action === 'diff' || action === 'push-jira') {
       await executeCommand(action, dir);
       continue;
     }

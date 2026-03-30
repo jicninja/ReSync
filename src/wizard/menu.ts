@@ -2,7 +2,7 @@ export type WizardState = 'no-config' | 'empty' | 'ingested' | 'analyzed' | 'gen
 
 export type WizardAction =
   | 'init' | 'ingest' | 'analyze' | 'generate' | 'export'
-  | 'autopilot' | 'reset' | 'status' | 'validate' | 'exit';
+  | 'autopilot' | 'reset' | 'status' | 'validate' | 'review' | 'diff' | 'push-jira' | 'exit';
 
 export interface MenuOption {
   value: WizardAction;
@@ -44,6 +44,7 @@ const MENUS: Record<WizardState, { options: Omit<MenuOption, 'hint'>[]; recommen
       { value: 'generate', label: 'Generate specs' },
       { value: 'autopilot', label: 'Autopilot — run remaining pipeline' },
       { value: 'analyze', label: 'Re-analyze' },
+      { value: 'diff', label: 'View diff from last run' },
       { value: 'reset', label: 'Start fresh — wipe all and re-run' },
       { value: 'status', label: 'View status' },
       { value: 'exit', label: 'Exit' },
@@ -53,7 +54,10 @@ const MENUS: Record<WizardState, { options: Omit<MenuOption, 'hint'>[]; recommen
     recommended: 'export',
     options: [
       { value: 'export', label: 'Export to format' },
+      { value: 'review', label: 'Review specs (detect hallucinations)' },
       { value: 'generate', label: 'Re-generate specs' },
+      { value: 'push-jira', label: 'Push tasks to Jira' },
+      { value: 'diff', label: 'View diff from last run' },
       { value: 'validate', label: 'Validate output' },
       { value: 'reset', label: 'Start fresh — wipe all and re-run' },
       { value: 'status', label: 'View status' },

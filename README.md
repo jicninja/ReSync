@@ -113,6 +113,57 @@ Run `respec` with no arguments to launch the interactive wizard:
 
 In the wizard (`respec` → Init), each detected value is pre-filled and editable, with additional prompts for Jira, Confluence, and local docs integration.
 
+## Prompt Overrides
+
+Customize analyzer/generator prompts by placing files in your project's `prompts/` directory:
+
+```
+my-project/
+└── prompts/
+    ├── domain-mapper.md      ← overrides built-in analyzer prompt
+    ├── sdd-gen.md            ← overrides built-in generator prompt
+    └── spec-reviewer.md      ← overrides reviewer prompt
+```
+
+Templates use the same placeholders as built-ins (`{{CONTEXT}}`, `{{CONTEXT_SOURCES}}`, `{{TIER1_OUTPUT}}`). A subprocess safety directive is always prepended automatically.
+
+## Spec Review
+
+`respec review` runs an AI reviewer that validates your generated specs against the raw data:
+
+```bash
+respec review              # review specs for hallucinations
+respec review --verbose    # show full report in terminal
+```
+
+The reviewer compares the SDD against raw ingestion data and produces `.respec/review-report.md` with: claims without evidence, raw data not covered, inconsistencies, and verified items.
+
+## Spec Diff
+
+After re-running analyze or generate, see what changed:
+
+```bash
+respec diff                    # diff both analyzed and specs
+respec diff --phase analyzed   # only analyzed phase
+respec diff --phase specs      # only specs
+```
+
+Snapshots are taken automatically before each analyze/generate run.
+
+## Push to Jira
+
+Export generated tasks directly to Jira as epics and stories:
+
+```bash
+respec push jira                              # create epics + stories
+respec push jira --epics-only                 # only epics
+respec push jira --project NEWPROJ            # specific target project
+respec push jira --prefix "[Migration v2]"    # custom prefix (default: [ReSpec])
+respec push jira --dry-run                    # preview without creating
+```
+
+Issues are created with a `respec` label for easy JQL filtering (`labels = respec`). Uses Jira credentials from `sources.jira` in your config.
+
 ## TUI Modes
 
 Individual commands support three modes:
@@ -224,6 +275,9 @@ Credentials always use the `env:` prefix — never stored in the config file.
 | `respec analyze` | AI analysis of raw data into `.respec/analyzed/` |
 | `respec generate` | Produces final specs in the configured format |
 | `respec export` | Repackages specs into a different output format |
+| `respec review` | AI review of specs — detect hallucinations |
+| `respec diff` | Show changes since last analyze/generate run |
+| `respec push jira` | Push tasks to Jira as epics + stories |
 | `respec status` | Shows pipeline state and phase progress |
 | `respec validate` | Checks integrity of phase outputs |
 
