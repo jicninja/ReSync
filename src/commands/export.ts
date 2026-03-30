@@ -4,6 +4,7 @@ import { loadConfig } from '../config/loader.js';
 import { createFormatAdapter } from '../formats/factory.js';
 import { analyzedDir, generatedDir } from '../utils/fs.js';
 import { createTUI } from '../tui/factory.js';
+import { readRecommendations, runToolkitWizard } from '../toolkit/wizard.js';
 
 export async function runExport(
   dir: string,
@@ -37,10 +38,25 @@ export async function runExport(
     ciMode: !!options.ci,
   };
 
+  // Read toolkit recommendations if available
+  const toolkitRecs = readRecommendations(inputDir);
+  if (toolkitRecs) {
+    context.toolkitRecommendations = toolkitRecs;
+  }
+
   tui.phaseHeader('EXPORT', `Format: ${format}`);
   tui.progress(`Exporting specs with format: ${format}...`);
   await adapter.package(inputDir, outputDir, context);
   tui.success(`Output: ${outputDir}`);
+
+  // Post-export toolkit wizard
+  if (toolkitRecs) {
+    await runToolkitWizard(toolkitRecs, {
+      format,
+      ciMode: !!options.ci,
+      autoMode: !!options.auto,
+    });
+  }
 
   tui.phaseSummary('EXPORT COMPLETE', [
     { label: format, status: '✓', detail: outputDir },
