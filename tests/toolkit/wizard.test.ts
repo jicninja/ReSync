@@ -71,8 +71,8 @@ describe('runToolkitWizard', () => {
 });
 
 describe('readRecommendations', () => {
-  it('returns null for non-existent file', () => {
+  it('returns undefined for non-existent file', () => {
     const result = readRecommendations('/nonexistent/path');
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 });

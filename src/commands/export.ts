@@ -5,6 +5,7 @@ import { createFormatAdapter } from '../formats/factory.js';
 import { analyzedDir, generatedDir } from '../utils/fs.js';
 import { createTUI } from '../tui/factory.js';
 import { readRecommendations, runToolkitWizard } from '../toolkit/wizard.js';
+import type { FormatContext } from '../formats/types.js';
 
 export async function runExport(
   dir: string,
@@ -28,7 +29,10 @@ export async function runExport(
     ? fs.readFileSync(sddPath, 'utf-8')
     : '';
 
-  const context = {
+  // Read toolkit recommendations if available
+  const toolkitRecs = readRecommendations(inputDir);
+
+  const context: FormatContext = {
     projectName: config.project.name,
     projectDescription: config.project.description ?? '',
     sddContent,
@@ -36,13 +40,8 @@ export async function runExport(
     generatedDir: inputDir,
     config,
     ciMode: !!options.ci,
+    toolkitRecommendations: toolkitRecs,
   };
-
-  // Read toolkit recommendations if available
-  const toolkitRecs = readRecommendations(inputDir);
-  if (toolkitRecs) {
-    context.toolkitRecommendations = toolkitRecs;
-  }
 
   tui.phaseHeader('EXPORT', `Format: ${format}`);
   tui.progress(`Exporting specs with format: ${format}...`);

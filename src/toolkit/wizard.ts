@@ -21,9 +21,9 @@ export function filterByAgent(recommendations: Recommendation[], format: string)
   return recommendations.filter((r) => r.agents.some((a) => agents.includes(a)));
 }
 
-export function readRecommendations(generatedDir: string): ToolkitRecommendations | null {
+export function readRecommendations(generatedDir: string): ToolkitRecommendations | undefined {
   const filePath = path.join(generatedDir, TOOLKIT_RECOMMENDATIONS_FILE);
-  if (!fs.existsSync(filePath)) return null;
+  if (!fs.existsSync(filePath)) return undefined;
 
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
@@ -31,7 +31,7 @@ export function readRecommendations(generatedDir: string): ToolkitRecommendation
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     clack.log.warn(`Failed to read toolkit recommendations: ${message}`);
-    return null;
+    return undefined;
   }
 }
 
